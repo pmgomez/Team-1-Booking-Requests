@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/parish_provider.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/text_field.dart';
 import '../utils/validators.dart';
@@ -20,7 +21,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  int? _selectedParishId;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ParishProvider>(context, listen: false).loadAllParishes();
+    });
+  }
 
   @override
   void dispose() {
@@ -54,6 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: _passwordController.text,
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
+      preferredParishId: _selectedParishId,
     );
 
     setState(() {
@@ -139,6 +150,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return 'Please confirm your password';
                   }
                   return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              Consumer<ParishProvider>(
+                builder: (context, parishProvider, _) {
+                  if (parishProvider.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  return DropdownButtonFormField<int>(
+                    value: _selectedParishId,
+                    decoration: const InputDecoration(
+                      labelText: 'Preferred Parish',
+                      hintText: 'Select your preferred parish',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.church),
+                    ),
+                    items: parishProvider.parishes
+                        .map((parish) => DropdownMenuItem(
+                              value: parish.id,
+                              child: Text(parish.name),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedParishId = value;
+                      });
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 30),

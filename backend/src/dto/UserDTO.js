@@ -12,6 +12,7 @@ class UserDTO {
     phone,
     role,
     assignedParishId,
+    preferredParishId,
     googleId,
     isActive,
     lastLoginAt,
@@ -26,6 +27,7 @@ class UserDTO {
     this.phone = phone;
     this.role = role;
     this.assignedParishId = assignedParishId;
+    this.preferredParishId = preferredParishId;
     this.googleId = googleId;
     this.isActive = isActive;
     this.lastLoginAt = lastLoginAt;
@@ -82,6 +84,7 @@ class UserDTO {
       phone: entity.phone,
       role: entity.role,
       assignedParishId: entity.assignedParishId,
+      preferredParishId: entity.preferredParishId,
       googleId: entity.googleId,
       isActive: entity.isActive,
       lastLoginAt: entity.lastLoginAt,
@@ -195,6 +198,7 @@ class UserDTO {
       phone: this.phone,
       role: this.role,
       assignedParishId: this.assignedParishId,
+      preferredParishId: this.preferredParishId,
       isActive: this.isActive,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
@@ -213,6 +217,7 @@ class UserDTO {
       phone: this.phone,
       role: this.role,
       assignedParishId: this.assignedParishId,
+      preferredParishId: this.preferredParishId,
       googleId: this.googleId,
       isActive: this.isActive,
       lastLoginAt: this.lastLoginAt,

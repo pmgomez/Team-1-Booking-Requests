@@ -31,15 +31,15 @@ class _LoginScreenState extends State<LoginScreen> {
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       bool success = await authProvider.login(
         _emailController.text.trim(),
         _passwordController.text,
       );
-      
+
       if (success) {
-        // Navigate to parish selection screen
-        Navigator.of(context).pushReplacementNamed('/parish-selection');
+        // Navigate to home screen
+        Navigator.of(context).pushReplacementNamed('/home');
       }
     }
   }
@@ -48,10 +48,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void _signInWithGoogle() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     bool success = await authProvider.signInWithGoogle();
-    
+
     if (success) {
-      // Navigate to parish selection screen
-      Navigator.of(context).pushReplacementNamed('/parish-selection');
+      // Navigate to home screen
+      Navigator.of(context).pushReplacementNamed('/home');
     }
   }
 

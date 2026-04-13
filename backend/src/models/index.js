@@ -160,6 +160,16 @@ Parish.hasMany(User, {
   as: 'staffMembers',
 });
 
+// Association for user's preferred parish
+User.belongsTo(Parish, {
+  foreignKey: 'preferredParishId',
+  as: 'preferredParish',
+});
+Parish.hasMany(User, {
+  foreignKey: 'preferredParishId',
+  as: 'parishioners',
+});
+
 // ============ PARISH ASSOCIATIONS ============
 Parish.hasMany(Booking, {
   foreignKey: 'parishId',
@@ -466,5 +476,6 @@ module.exports = {
   BookingDocument,
   Payment,
   SacramentalRecord,
+  TokenBlacklist,
   syncDatabase,
 };

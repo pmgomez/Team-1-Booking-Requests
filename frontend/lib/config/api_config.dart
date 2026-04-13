@@ -29,13 +29,23 @@ class ApiConfig {
   static const String refreshEndpoint = '$authEndpoint/refresh';
   static const String profileEndpoint = '$authEndpoint/me';
   static const String changePasswordEndpoint = '$authEndpoint/change-password';
-  
+
   static const String bookingsEndpoint = '/api/bookings';
   static const String intentionsEndpoint = '/api/intentions';
   static const String usersEndpoint = '/api/users';
   static const String filesEndpoint = '/api/files';
   static const String parishesEndpoint = '/api/parishes';
-  
+
+  // Sacrament endpoints
+  static const String baptismsEndpoint = '/api/baptisms';
+  static const String weddingsEndpoint = '/api/sacraments/weddings';
+  static const String confirmationsEndpoint = '/api/sacraments/confirmations';
+  static const String eucharistEndpoint = '/api/sacraments/eucharist';
+  static const String reconciliationsEndpoint = '/api/sacraments/reconciliations';
+  static const String anointingSickEndpoint = '/api/sacraments/anointing-sick';
+  static const String funeralMassEndpoint = '/api/sacraments/funeral-mass';
+  static const String massIntentionsEndpoint = '/api/mass-intentions';
+
   static const String healthEndpoint = '/health';
   static const String apiInfoEndpoint = '/api';
   

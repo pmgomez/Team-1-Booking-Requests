@@ -49,6 +49,7 @@ class AuthService {
     required String firstName,
     required String lastName,
     String? phone,
+    int? preferredParishId,
   }) async {
     try {
       final response = await ApiConfig.post(ApiConfig.registerEndpoint, json.encode({
@@ -57,6 +58,7 @@ class AuthService {
         'firstName': firstName,
         'lastName': lastName,
         'phone': phone,
+        'preferredParishId': preferredParishId,
       }));
 
       if (response.statusCode == 201) {

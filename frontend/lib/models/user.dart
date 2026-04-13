@@ -5,6 +5,7 @@ class User {
   final String lastName;
   final String? phone;
   final String role;
+  final int? preferredParishId;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -16,6 +17,7 @@ class User {
     required this.lastName,
     this.phone,
     required this.role,
+    this.preferredParishId,
     required this.isActive,
     this.createdAt,
     this.updatedAt,
@@ -29,6 +31,7 @@ class User {
       lastName: json['lastName'],
       phone: json['phone'],
       role: json['role'],
+      preferredParishId: json['preferredParishId'],
       isActive: json['isActive'] ?? true,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
@@ -43,6 +46,7 @@ class User {
       'lastName': lastName,
       'phone': phone,
       'role': role,
+      'preferredParishId': preferredParishId,
       'isActive': isActive,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -50,7 +54,7 @@ class User {
   }
 
   String get fullName => '$firstName $lastName';
-  
+
   User copyWith({
     int? id,
     String? email,
@@ -58,6 +62,7 @@ class User {
     String? lastName,
     String? phone,
     String? role,
+    int? preferredParishId,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -69,6 +74,7 @@ class User {
       lastName: lastName ?? this.lastName,
       phone: phone ?? this.phone,
       role: role ?? this.role,
+      preferredParishId: preferredParishId ?? this.preferredParishId,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

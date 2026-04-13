@@ -15,8 +15,8 @@ exports.register = async (req, res, next) => {
       });
     }
     
-    const { email, password, firstName, lastName, phone } = req.body;
-    
+    const { email, password, firstName, lastName, phone, preferredParishId } = req.body;
+
     try {
       // Register user using auth service
       const result = await authService.register({
@@ -25,6 +25,7 @@ exports.register = async (req, res, next) => {
         firstName,
         lastName,
         phone,
+        preferredParishId,
         role: 'parishioner' // Default role
       });
       

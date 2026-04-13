@@ -68,23 +68,25 @@ async function runMigrations() {
 
     // Create default admin user if none exists
     const adminUser = await User.findOne({
-      where: { email: 'admin@diocese-kalookan.com' }
+      where: { email: process.env.SUPER_ADMIN_EMAIL || 'admin@diocese-kalookan.com' }
     });
 
     if (!adminUser) {
       await User.create({
-        email: 'admin@diocese-kalookan.com',
-        password: 'AdminPass123!',
-        firstName: 'System',
-        lastName: 'Administrator',
+        email: process.env.SUPER_ADMIN_EMAIL || 'admin@diocese-kalookan.com',
+        password: process.env.SUPER_ADMIN_PASSWORD || 'AdminPass123!',
+        firstName: process.env.SUPER_ADMIN_FIRST_NAME || 'System',
+        lastName: process.env.SUPER_ADMIN_LAST_NAME || 'Administrator',
         phone: '+639123456789',
         role: 'diocese_admin',
         isActive: true
       });
 
-      console.log('✅ Default diocese_admin user created.');
+      console.log('✅ Default diocese_admin (super admin) user created.');
+      console.log(`   Email: ${process.env.SUPER_ADMIN_EMAIL || 'admin@diocese-kalookan.com'}`);
+      console.log('   ⚠️  IMPORTANT: Change this password after first login!');
     } else {
-      console.log('ℹ️  Admin user already exists.');
+      console.log('ℹ️  Super admin user already exists.');
     }
 
     // Create sample parish if none exists

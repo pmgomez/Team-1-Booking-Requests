@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const container = require('../container');
+const { User } = require('../models');
 const MassIntentionDTO = require('../dto/MassIntentionDTO');
 
 // Create a new mass intention
@@ -14,12 +15,18 @@ exports.createMassIntention = async (req, res, next) => {
       });
     }
 
+    // Fetch full user object for email
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     // Create DTO from request
     const dto = MassIntentionDTO.fromRequest(req.body);
 
     // Execute use case
     const useCase = container.get('createMassIntentionUseCase');
-    const result = await useCase.execute(dto, req.user);
+    const result = await useCase.execute(dto, user);
 
     res.status(201).json({
       message: 'Mass intention created successfully',

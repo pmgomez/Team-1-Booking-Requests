@@ -49,7 +49,6 @@ const checkBlackoutDates = async (parishId, serviceType, date) => {
     where: {
       parishId,
       date,
-      isActive: true,
       [Op.or]: [{ serviceType: null }, { serviceType }],
     },
   });
@@ -162,13 +161,13 @@ exports.createBaptismBooking = async (req, res) => {
       const godparentRecords = godparents.map((gp) => ({
         bookingType: 'baptism',
         bookingId: booking.id,
-        fullName: gp.fullName,
-        contactEmail: gp.contactEmail,
-        contactPhone: gp.contactPhone,
-        address: gp.address,
-        parishAffiliation: gp.parishAffiliation,
-        confirmationCertificateNumber: gp.confirmationCertificateNumber,
-        notes: gp.notes,
+        fullName: gp.fullName || gp.name || 'Unknown',
+        contactEmail: gp.contactEmail || null,
+        contactPhone: gp.contactPhone || null,
+        address: gp.address || null,
+        parishAffiliation: gp.parishAffiliation || null,
+        confirmationCertificateNumber: gp.confirmationCertificateNumber || null,
+        notes: gp.notes || null,
       }));
       await Godparent.bulkCreate(godparentRecords);
     }
@@ -214,7 +213,9 @@ exports.createBaptismBooking = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating baptism booking:', error);
-    res.status(500).json({ error: 'Failed to create baptism booking' });
+    console.error('Request body:', req.body);
+    console.error('User:', req.user);
+    res.status(500).json({ error: 'Failed to create baptism booking', details: error.message });
   }
 };
 

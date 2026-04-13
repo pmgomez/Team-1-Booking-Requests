@@ -36,7 +36,7 @@ class CreateMassIntentionUseCase {
     }
 
     // Set additional fields
-    dto.submittedBy = user.userId;
+    dto.submittedBy = user.id; // Use user.id from Sequelize model
     dto.dateRequested = new Date().toISOString().split('T')[0];
     dto.status = 'pending';
 

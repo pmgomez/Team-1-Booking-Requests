@@ -35,6 +35,7 @@ const authenticateJWT = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error('Auth middleware error:', error.message);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         error: 'Token expired',
@@ -47,7 +48,7 @@ const authenticateJWT = async (req, res, next) => {
         message: 'The provided token is invalid or malformed.'
       });
     }
-    return res.status(500).json({ error: 'Authentication failed' });
+    return res.status(500).json({ error: 'Authentication failed', details: error.message });
   }
 };
 

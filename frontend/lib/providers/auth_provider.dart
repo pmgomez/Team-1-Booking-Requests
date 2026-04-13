@@ -5,14 +5,16 @@ import '../services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
-  
+
   bool _isLoading = false;
   String? _errorMessage;
-  
+
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _authService.isAuthenticated;
   User? get currentUser => _authService.currentUser;
+  String? get token => _authService.accessToken;
+  String? get accessToken => _authService.accessToken;
 
   AuthProvider() {
     _initializeAuth();
@@ -50,18 +52,20 @@ class AuthProvider extends ChangeNotifier {
     required String firstName,
     required String lastName,
     String? phone,
+    int? preferredParishId,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
-    
+
     final result = await _authService.register(
       email: email,
       password: password,
       firstName: firstName,
       lastName: lastName,
       phone: phone,
+      preferredParishId: preferredParishId,
     );
-    
+
     if (result.success && result.data != null) {
       _setLoading(false);
       notifyListeners();

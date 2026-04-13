@@ -70,8 +70,8 @@ class AuthService {
    * Registers a new user
    */
   async register(userData) {
-    const { email, password, firstName, lastName, phone, role = 'parishioner' } = userData;
-    
+    const { email, password, firstName, lastName, phone, role = 'parishioner', preferredParishId } = userData;
+
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
@@ -86,11 +86,12 @@ class AuthService {
       lastName,
       phone,
       role,
+      preferredParishId,
     });
 
     // Generate tokens
     const tokens = this.generateTokens(user);
-    
+
     return {
       user: user.toSafeObject(),
       ...tokens,

@@ -116,6 +116,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/parishes', parishRoutes);
 
+// Admin routes (must be before sacraments to avoid conflicts)
+app.use('/api/admin', adminRoutes);
+
 // New sacrament booking routes
 app.use('/api/baptisms', baptismRoutes);
 app.use('/api/sacraments', sacramentRoutes);

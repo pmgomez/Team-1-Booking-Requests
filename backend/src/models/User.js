@@ -48,6 +48,14 @@ const User = sequelize.define('User', {
     },
     allowNull: true,
   },
+  preferredParishId: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'parishes',
+      key: 'id',
+    },
+    allowNull: true,
+  },
   googleId: {
     type: DataTypes.STRING(255),
     unique: true,
@@ -69,6 +77,7 @@ const User = sequelize.define('User', {
     { fields: ['google_id'] },
     { fields: ['role'] },
     { fields: ['assigned_parish_id'] },
+    { fields: ['preferred_parish_id'] },
   ],
 });
 
@@ -105,6 +114,7 @@ User.prototype.toSafeObject = function() {
     phone: this.phone,
     role: this.role,
     assignedParishId: this.assignedParishId,
+    preferredParishId: this.preferredParishId,
     isActive: this.isActive,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
