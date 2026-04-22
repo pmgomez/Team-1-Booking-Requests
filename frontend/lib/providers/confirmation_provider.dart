@@ -57,6 +57,12 @@ class ConfirmationProvider extends ChangeNotifier {
     required String preferredTimeSlot,
     String? preferredPriest,
     String? additionalNotes,
+    String? uploadedFile,
+    String? filePath,
+    String? fileUrl,
+    int? fileSize,
+    String? mimeType,
+    String? documentType,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -73,6 +79,12 @@ class ConfirmationProvider extends ChangeNotifier {
       preferredTimeSlot: preferredTimeSlot,
       preferredPriest: preferredPriest,
       additionalNotes: additionalNotes,
+      uploadedFile: uploadedFile,
+      filePath: filePath,
+      fileUrl: fileUrl,
+      fileSize: fileSize,
+      mimeType: mimeType,
+      documentType: documentType,
     );
 
     if (result.success && result.data != null) {

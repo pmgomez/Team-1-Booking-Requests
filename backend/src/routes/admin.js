@@ -7,11 +7,14 @@ const router = express.Router();
 // All admin routes require authentication and admin roles
 router.use(authenticateJWT);
 
+// Note: requirePasswordChange middleware removed
+// Users can now access admin screens while seeing a modal reminder to change password
+
 // ==================== DASHBOARD ====================
 // Get dashboard statistics
 router.get(
   '/dashboard',
-  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.getDashboardStats
 );
 
@@ -19,35 +22,35 @@ router.get(
 // Get all users (with filtering and pagination)
 router.get(
   '/users',
-  authorizeRoles('diocese_admin', 'parish_admin'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin'),
   adminController.getAllUsers
 );
 
 // Get single user by ID
 router.get(
   '/users/:id',
-  authorizeRoles('diocese_admin', 'parish_admin'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin'),
   adminController.getUserById
 );
 
 // Create new user
 router.post(
   '/users',
-  authorizeRoles('diocese_admin', 'parish_admin'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.createUser
 );
 
 // Update user
 router.put(
   '/users/:id',
-  authorizeRoles('diocese_admin', 'parish_admin'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin'),
   adminController.updateUser
 );
 
 // Delete user (soft delete)
 router.delete(
   '/users/:id',
-  authorizeRoles('diocese_admin'),
+  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
   adminController.deleteUser
 );
 
@@ -55,14 +58,14 @@ router.delete(
 // Get all parishes
 router.get(
   '/parishes',
-  authorizeRoles('diocese_admin', 'parish_admin'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin'),
   adminController.getAllParishes
 );
 
 // Get single parish by ID
 router.get(
   '/parishes/:id',
-  authorizeRoles('diocese_admin', 'parish_admin'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin'),
   adminController.getParishById
 );
 
@@ -113,21 +116,21 @@ router.delete(
 // Get all bookings (admin view with filtering)
 router.get(
   '/bookings',
-  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.getAllBookings
 );
 
 // Get single booking by ID
 router.get(
   '/bookings/:id',
-  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.getBookingById
 );
 
 // Update booking status (approve/reject/reschedule)
 router.put(
   '/bookings/:id/status',
-  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.updateBookingStatus
 );
 
@@ -142,14 +145,14 @@ router.delete(
 // Get all mass intentions (admin view)
 router.get(
   '/mass-intentions',
-  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.getAllMassIntentions
 );
 
 // Update mass intention status
 router.put(
   '/mass-intentions/:id/status',
-  authorizeRoles('diocese_admin', 'parish_admin', 'parish_staff'),
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff'),
   adminController.updateMassIntentionStatus
 );
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const sacramentController = require('../controllers/sacramentController');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const { upload } = require('../middleware/upload');
 
 // All routes require authentication
 router.use(authenticateJWT);
@@ -16,12 +17,16 @@ const createSacramentRoutes = (sacramentType) => {
   const deleteBooking = sacramentController.deleteSacramentBooking(sacramentType);
   const approveBooking = sacramentController.approveSacramentBooking(sacramentType);
   const getAvailableSlots = sacramentController.getAvailableTimeSlots(sacramentType);
+  const attachDocument = sacramentController.attachDocument(sacramentType);
 
   return (prefix) => {
     // Public routes for parishioners
     router.post(`/${prefix}`, createBooking);
     router.get(`/${prefix}`, getBookings);
     router.get(`/${prefix}/available-slots`, getAvailableSlots);
+
+    // Attach document to booking (must be before /:id route)
+    router.post(`/${prefix}/:id/document`, upload.single('document'), attachDocument);
 
     // Get single booking
     router.get(`/${prefix}/:id`, getBooking);

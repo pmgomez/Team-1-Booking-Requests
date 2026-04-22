@@ -22,6 +22,12 @@ class AdminService {
           data: data,
           message: data['message'],
         );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
       } else {
         return ApiResponse<Map<String, dynamic>>(
           success: false,
@@ -42,6 +48,9 @@ class AdminService {
     String token, {
     String? sacramentType,
     String? status,
+    String? parishId,
+    String? startDate,
+    String? endDate,
     int page = 1,
     int limit = 20,
   }) async {
@@ -49,6 +58,9 @@ class AdminService {
       String url = '/api/admin/bookings?page=$page&limit=$limit';
       if (sacramentType != null) url += '&sacramentType=$sacramentType';
       if (status != null) url += '&status=$status';
+      if (parishId != null) url += '&parishId=$parishId';
+      if (startDate != null) url += '&startDate=$startDate';
+      if (endDate != null) url += '&endDate=$endDate';
 
       final response = await ApiConfig.getWithAuth(url, token);
 
@@ -58,6 +70,12 @@ class AdminService {
           success: true,
           data: data,
           message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
         );
       } else {
         return ApiResponse<Map<String, dynamic>>(
@@ -98,6 +116,12 @@ class AdminService {
           data: data,
           message: data['message'],
         );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
       } else {
         return ApiResponse<Map<String, dynamic>>(
           success: false,
@@ -117,7 +141,7 @@ class AdminService {
   Future<ApiResponse<Map<String, dynamic>>> getAllParishes(String token) async {
     try {
       final response = await ApiConfig.getWithAuth(
-        '/api/parishes',
+        '/api/admin/parishes',
         token,
       );
 
@@ -127,6 +151,12 @@ class AdminService {
           success: true,
           data: data,
           message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
         );
       } else {
         return ApiResponse<Map<String, dynamic>>(
@@ -150,7 +180,7 @@ class AdminService {
   ) async {
     try {
       final response = await ApiConfig.postWithAuth(
-        '/api/parishes',
+        '/api/admin/parishes',
         token,
         json.encode(parishData),
       );
@@ -162,10 +192,57 @@ class AdminService {
           data: data,
           message: data['message'],
         );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
       } else {
         return ApiResponse<Map<String, dynamic>>(
           success: false,
           message: 'Failed to create parish',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Update parish
+  Future<ApiResponse<Map<String, dynamic>>> updateParish(
+    String token,
+    int parishId,
+    Map<String, dynamic> parishData,
+  ) async {
+    try {
+      final response = await ApiConfig.putWithAuth(
+        '/api/parishes/$parishId',
+        token,
+        json.encode(parishData),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data,
+          message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Failed to update parish',
         );
       }
     } catch (e) {
@@ -195,6 +272,12 @@ class AdminService {
           success: true,
           data: data,
           message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
         );
       } else {
         return ApiResponse<Map<String, dynamic>>(
@@ -230,10 +313,135 @@ class AdminService {
           data: data,
           message: data['message'],
         );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
       } else {
         return ApiResponse<Map<String, dynamic>>(
           success: false,
           message: 'Failed to create user',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Update user
+  Future<ApiResponse<Map<String, dynamic>>> updateUser(
+    String token,
+    int userId,
+    Map<String, dynamic> userData,
+  ) async {
+    try {
+      final response = await ApiConfig.putWithAuth(
+        '/api/admin/users/$userId',
+        token,
+        json.encode(userData),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data,
+          message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Failed to update user',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Delete user
+  Future<ApiResponse<Map<String, dynamic>>> deleteUser(
+    String token,
+    int userId,
+  ) async {
+    try {
+      final response = await ApiConfig.deleteWithAuth(
+        '/api/admin/users/$userId',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data,
+          message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Failed to delete user',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Delete booking
+  Future<ApiResponse<Map<String, dynamic>>> deleteBooking(
+    String token,
+    String bookingId,
+  ) async {
+    try {
+      final response = await ApiConfig.deleteWithAuth(
+        '/api/admin/bookings/$bookingId',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data,
+          message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Failed to delete booking',
         );
       }
     } catch (e) {
@@ -264,6 +472,12 @@ class AdminService {
           success: true,
           data: data,
           message: data['message'],
+        );
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
         );
       } else {
         return ApiResponse<Map<String, dynamic>>(

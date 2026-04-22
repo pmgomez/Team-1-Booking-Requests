@@ -1,6 +1,9 @@
+import 'document.dart';
+
 class BaptismBooking {
   final int? id;
   final int? parishId;
+  final String? parishName;
   final int? userId;
   final String? childFullName;
   final String? dateOfBirth;
@@ -18,10 +21,12 @@ class BaptismBooking {
   final String? approvedAt;
   final String? createdAt;
   final String? updatedAt;
+  final List<Document>? documents;
 
   BaptismBooking({
     this.id,
     this.parishId,
+    this.parishName,
     this.userId,
     this.childFullName,
     this.dateOfBirth,
@@ -39,12 +44,14 @@ class BaptismBooking {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.documents,
   });
 
   factory BaptismBooking.fromJson(Map<String, dynamic> json) {
     return BaptismBooking(
       id: json['id'],
       parishId: json['parishId'],
+      parishName: json['parish']?['name'],
       userId: json['userId'],
       childFullName: json['childFullName'],
       dateOfBirth: json['dateOfBirth'],
@@ -62,6 +69,9 @@ class BaptismBooking {
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      documents: json['documents'] != null 
+          ? (json['documents'] as List).map((doc) => Document.fromJson(doc)).toList()
+          : null,
     );
   }
 
@@ -82,6 +92,7 @@ class BaptismBooking {
       if (additionalNotes != null) 'additionalNotes': additionalNotes,
       if (status != null) 'status': status,
       if (adminNotes != null) 'adminNotes': adminNotes,
+      if (documents != null) 'documents': documents!.map((doc) => doc.toJson()).toList(),
     };
   }
 

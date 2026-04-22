@@ -1,8 +1,8 @@
 import 'dart:convert';
-
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/baptism_booking.dart';
 import '../models/api_response.dart';
-import '../config/api_config.dart';
 import 'api_client.dart';
 
 class BaptismService {
@@ -115,6 +115,12 @@ class BaptismService {
     String? preferredPriest,
     String? additionalNotes,
     List<Map<String, String>>? godparents,
+    String? uploadedFile,
+    String? filePath,
+    String? fileUrl,
+    int? fileSize,
+    String? mimeType,
+    String? documentType,
   }) async {
     try {
       final requestBody = {
@@ -130,6 +136,12 @@ class BaptismService {
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
         if (additionalNotes != null) 'additionalNotes': additionalNotes,
         if (godparents != null) 'godparents': godparents,
+        if (uploadedFile != null) 'uploadedFile': uploadedFile,
+        if (filePath != null) 'filePath': filePath,
+        if (fileUrl != null) 'fileUrl': fileUrl,
+        if (fileSize != null) 'fileSize': fileSize,
+        if (mimeType != null) 'mimeType': mimeType,
+        if (documentType != null) 'documentType': documentType,
       };
 
       final response = await _apiClient.postWithAuth(
@@ -169,22 +181,45 @@ class BaptismService {
     }
   }
 
-  // Update baptism booking
+  // Update baptism booking (full fields - admin)
   Future<ApiResponse<BaptismBooking>> updateBaptismBooking({
     required int id,
-    String? status,
+    String? childFullName,
+    String? dateOfBirth,
+    String? fatherName,
+    String? motherName,
+    String? contactEmail,
+    String? contactPhone,
+    String? preferredDate,
+    String? preferredTimeSlot,
+    String? preferredPriest,
     String? additionalNotes,
   }) async {
     try {
-      final requestBody = {
-        if (status != null) 'status': status,
+      final requestBody = <String, dynamic>{
+        if (childFullName != null) 'childFullName': childFullName,
+        if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+        if (fatherName != null) 'fatherName': fatherName,
+        if (motherName != null) 'motherName': motherName,
+        if (contactEmail != null) 'contactEmail': contactEmail,
+        if (contactPhone != null) 'contactPhone': contactPhone,
+        if (preferredDate != null) 'preferredDate': preferredDate,
+        if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
+        if (preferredPriest != null) 'preferredPriest': preferredPriest,
         if (additionalNotes != null) 'additionalNotes': additionalNotes,
       };
+
+      print('=== UPDATE BAPTISM REQUEST ===');
+      print('ID: $id');
+      print('Request body: $requestBody');
 
       final response = await _apiClient.putWithAuth(
         '${ApiConfig.baptismsEndpoint}/$id',
         json.encode(requestBody),
       );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -204,6 +239,7 @@ class BaptismService {
         );
       }
     } catch (e) {
+      print('ERROR in updateBaptismBooking: $e');
       return ApiResponse<BaptismBooking>(
         success: false,
         message: 'Network error updating baptism booking',
@@ -250,6 +286,55 @@ class BaptismService {
       return ApiResponse<BaptismBooking>(
         success: false,
         message: 'Network error updating baptism status',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Attach document to baptism booking
+  Future<ApiResponse<Map<String, dynamic>>> attachDocumentToBooking({
+    required int bookingId,
+    required String token,
+    required String filePath,
+    String? documentType,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.baptismsEndpoint}/$bookingId/document');
+      final request = http.MultipartRequest('POST', uri);
+
+      request.files.add(await http.MultipartFile.fromPath('document', filePath));
+      
+      if (documentType != null) {
+        request.fields['documentType'] = documentType;
+      }
+
+      request.headers.addAll(ApiConfig.getAuthHeaders(token));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('Attach doc response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data['document'] ?? data,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to attach document',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      print('Error attaching document: $e');
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error attaching document: $e',
         errors: [e.toString()],
       );
     }

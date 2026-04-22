@@ -83,6 +83,12 @@ class BaptismProvider extends ChangeNotifier {
     String? preferredPriest,
     String? additionalNotes,
     List<Map<String, String>>? godparents,
+    String? uploadedFile,
+    String? filePath,
+    String? fileUrl,
+    int? fileSize,
+    String? mimeType,
+    String? documentType,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -100,6 +106,12 @@ class BaptismProvider extends ChangeNotifier {
       preferredPriest: preferredPriest,
       additionalNotes: additionalNotes,
       godparents: godparents,
+      uploadedFile: uploadedFile,
+      filePath: filePath,
+      fileUrl: fileUrl,
+      fileSize: fileSize,
+      mimeType: mimeType,
+      documentType: documentType,
     );
 
     if (result.success && result.data != null) {

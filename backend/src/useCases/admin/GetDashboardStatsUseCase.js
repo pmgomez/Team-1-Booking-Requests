@@ -40,30 +40,36 @@ class GetDashboardStatsUseCase {
   }
 
   _getParishWhereClause(user, filters) {
+    // Parish-level users: restrict to their assigned parish
     if (user.role === 'parish_admin' || user.role === 'parish_staff') {
       return { id: user.assignedParishId };
     }
-    if (filters.parishId && user.role === 'diocese_admin') {
+    // Diocese-level users: can filter by specific parish or see all
+    if (filters.parishId && (user.role === 'diocese_admin' || user.role === 'diocese_staff')) {
       return { id: filters.parishId };
     }
     return {};
   }
 
   _getBookingWhereClause(user, filters) {
+    // Parish-level users: restrict to their assigned parish
     if (user.role === 'parish_admin' || user.role === 'parish_staff') {
       return { parishId: user.assignedParishId };
     }
-    if (filters.parishId && user.role === 'diocese_admin') {
+    // Diocese-level users: can filter by specific parish or see all
+    if (filters.parishId && (user.role === 'diocese_admin' || user.role === 'diocese_staff')) {
       return { parishId: filters.parishId };
     }
     return {};
   }
 
   _getUserWhereClause(user, filters) {
+    // Parish-level users: restrict to their assigned parish
     if (user.role === 'parish_admin' || user.role === 'parish_staff') {
       return { assignedParishId: user.assignedParishId };
     }
-    if (filters.parishId && user.role === 'diocese_admin') {
+    // Diocese-level users: can filter by specific parish or see all
+    if (filters.parishId && (user.role === 'diocese_admin' || user.role === 'diocese_staff')) {
       return { assignedParishId: filters.parishId };
     }
     return {};

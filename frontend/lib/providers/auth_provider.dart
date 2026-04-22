@@ -15,6 +15,7 @@ class AuthProvider extends ChangeNotifier {
   User? get currentUser => _authService.currentUser;
   String? get token => _authService.accessToken;
   String? get accessToken => _authService.accessToken;
+  bool get mustChangePassword => _authService.mustChangePassword;
 
   AuthProvider() {
     _initializeAuth();
@@ -139,6 +140,29 @@ class AuthProvider extends ChangeNotifier {
     
     final result = await _authService.changePassword(
       oldPassword: oldPassword,
+      newPassword: newPassword,
+    );
+    
+    if (result.success) {
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } else {
+      _setLoading(false);
+      _setErrorMessage(result.message ?? 'Failed to change password');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Force password change on first login
+  Future<bool> forcePasswordChange({
+    required String newPassword,
+  }) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+    
+    final result = await _authService.forcePasswordChange(
       newPassword: newPassword,
     );
     

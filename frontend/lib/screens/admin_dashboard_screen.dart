@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/admin_service.dart';
 import '../utils/role_helpers.dart';
+import 'admin_bookings_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -37,6 +38,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _stats = response.data!;
         _isLoading = false;
       });
+    } else if (response.mustChangePassword) {
+      // Redirect to change password screen
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/change-password',
+          (route) => route.isFirst,
+        );
+      }
     } else {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -52,35 +61,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required String value,
     required IconData icon,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: color,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 28, color: color),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+              const SizedBox(height: 2),
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -146,24 +170,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         value: _stats['totalBookings']?.toString() ?? '0',
                         icon: Icons.calendar_today,
                         color: Colors.blue,
+                        onTap: () {
+                          Navigator.pushNamed(context, '/admin-bookings');
+                        },
                       ),
                       _buildStatCard(
                         title: 'Pending',
                         value: _stats['pendingBookings']?.toString() ?? '0',
                         icon: Icons.pending,
                         color: Colors.orange,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminBookingsScreen(
+                                initialStatus: 'pending',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildStatCard(
                         title: 'Approved',
                         value: _stats['approvedBookings']?.toString() ?? '0',
                         icon: Icons.check_circle,
                         color: Colors.green,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminBookingsScreen(
+                                initialStatus: 'approved',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildStatCard(
                         title: 'Parishes',
                         value: _stats['totalParishes']?.toString() ?? '0',
                         icon: Icons.church,
                         color: Colors.purple,
+                        onTap: () {
+                          Navigator.pushNamed(context, '/admin-parishes');
+                        },
                       ),
                       if (isDioceseLevel)
                         _buildStatCard(
@@ -171,12 +221,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           value: _stats['totalUsers']?.toString() ?? '0',
                           icon: Icons.people,
                           color: Colors.teal,
+                          onTap: () {
+                            Navigator.pushNamed(context, '/admin-users');
+                          },
                         ),
                       _buildStatCard(
                         title: 'This Month',
                         value: _stats['thisMonthBookings']?.toString() ?? '0',
                         icon: Icons.today,
                         color: Colors.indigo,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminBookingsScreen(
+                                initialDateFilter: 'this_month',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -39,6 +39,9 @@ dependencies:
   # File picker for uploading documents (birth cert, baptismal, CENOMAR, etc.)
   file_picker: ^8.0.0
 
+  # URL launcher for opening documents
+  url_launcher: ^6.1.11
+
   # Google Sign-In
   google_sign_in: ^6.1.5
 

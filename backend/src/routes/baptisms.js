@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const baptismController = require('../controllers/baptismController');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const { upload } = require('../middleware/upload');
 
 // All routes require authentication
 router.use(authenticateJWT);
@@ -10,6 +11,9 @@ router.use(authenticateJWT);
 router.post('/', baptismController.createBaptismBooking);
 router.get('/', baptismController.getBaptismBookings);
 router.get('/available-slots', baptismController.getAvailableTimeSlots);
+
+// Attach document to booking (must be before /:id route)
+router.post('/:id/document', upload.single('document'), baptismController.attachDocument);
 
 // Get single booking (owner or admin)
 router.get('/:id', baptismController.getBaptismBooking);

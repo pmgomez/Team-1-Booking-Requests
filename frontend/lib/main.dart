@@ -17,13 +17,18 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/parish_selection_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/change_password_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/baptism_booking_screen.dart';
+import 'screens/baptism_detail_screen.dart';
 import 'screens/wedding_booking_screen.dart';
 import 'screens/confirmation_booking_screen.dart';
 import 'screens/Eucharist_Screen.dart';
 import 'screens/Reconciliation_Screen.dart';
 import 'screens/Anointing_The_Sick.dart';
 import 'screens/Mass_Intention_Screen.dart';
+import 'screens/mass_intention_detail_screen.dart';
 import 'screens/Funeral_Mass_Screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/admin_bookings_screen.dart';
@@ -38,6 +43,77 @@ void main() {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case '/':
+        return MaterialPageRoute(builder: (_) => SplashScreen());
+      case '/login':
+        return MaterialPageRoute(builder: (_) => LoginScreen());
+      case '/home':
+        return MaterialPageRoute(builder: (_) => HomeScreen());
+      case '/parish-selection':
+        return MaterialPageRoute(builder: (_) => ParishSelectionScreen());
+      case '/register':
+        return MaterialPageRoute(builder: (_) => RegisterScreen());
+      case '/baptism-booking':
+        return MaterialPageRoute(builder: (_) => BaptismBookingScreen());
+      case '/baptism-detail': {
+        final args = settings.arguments as Map<String, dynamic>? ?? {};
+        print('=== NAVIGATING TO BAPTISM DETAIL ===');
+        print('Arguments: $args');
+        print('ID: ${args['id']}');
+        print('fromStatusButton: ${args['fromStatusButton']}');
+        return MaterialPageRoute(
+          builder: (_) => BaptismDetailScreen(
+            baptismId: args['id'] as int?,
+            fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+          ),
+        );
+      }
+      case '/wedding-booking':
+        return MaterialPageRoute(builder: (_) => WeddingBookingScreen());
+      case '/confirmation-booking':
+        return MaterialPageRoute(builder: (_) => ConfirmationBookingScreen());
+      case '/eucharist':
+        return MaterialPageRoute(builder: (_) => EucharistScreen());
+      case '/reconciliation':
+        return MaterialPageRoute(builder: (_) => ReconciliationScreen());
+      case '/anointing-the-sick':
+        return MaterialPageRoute(builder: (_) => AnointingTheSickScreen());
+      case '/mass-intention':
+        return MaterialPageRoute(builder: (_) => MassIntentionScreen());
+      case '/mass-intention-detail': {
+        final args = settings.arguments as Map<String, dynamic>? ?? {};
+        return MaterialPageRoute(
+          builder: (_) => MassIntentionDetailScreen(
+            massIntentionId: args['id'] as int?,
+            fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+          ),
+        );
+      }
+      case '/funeral-mass':
+        return MaterialPageRoute(builder: (_) => FuneralMassScreen());
+      case '/admin-dashboard':
+        return MaterialPageRoute(builder: (_) => AdminDashboardScreen());
+      case '/admin-bookings':
+        return MaterialPageRoute(builder: (_) => AdminBookingsScreen());
+      case '/admin-parishes':
+        return MaterialPageRoute(builder: (_) => AdminParishesScreen());
+      case '/admin-users':
+        return MaterialPageRoute(builder: (_) => AdminUsersScreen());
+      case '/admin-records':
+        return MaterialPageRoute(builder: (_) => AdminRecordsScreen());
+      case '/change-password':
+        return MaterialPageRoute(builder: (_) => ChangePasswordScreen());
+      case '/forgot-password':
+        return MaterialPageRoute(builder: (_) => ForgotPasswordScreen());
+      case '/profile':
+        return MaterialPageRoute(builder: (_) => ProfileScreen());
+      default:
+        return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,27 +141,7 @@ class MyApp extends StatelessWidget {
               fontFamily: 'Roboto',
             ),
             initialRoute: '/',
-            routes: {
-              '/': (context) => SplashScreen(),
-              '/login': (context) => LoginScreen(),
-              '/home': (context) => HomeScreen(),
-              '/parish-selection': (context) => ParishSelectionScreen(),
-              '/register': (context) => RegisterScreen(),
-              '/baptism-booking': (context) => BaptismBookingScreen(),
-              '/wedding-booking': (context) => WeddingBookingScreen(),
-              '/confirmation-booking': (context) => ConfirmationBookingScreen(),
-              '/eucharist': (context) => EucharistScreen(),
-              '/reconciliation': (context) => ReconciliationScreen(),
-              '/anointing-the-sick': (context) => AnointingTheSickScreen(),
-              '/mass-intention': (context) => MassIntentionScreen(),
-              '/funeral-mass': (context) => FuneralMassScreen(),
-              // Admin routes
-              '/admin-dashboard': (context) => AdminDashboardScreen(),
-              '/admin-bookings': (context) => AdminBookingsScreen(),
-              '/admin-parishes': (context) => AdminParishesScreen(),
-              '/admin-users': (context) => AdminUsersScreen(),
-              '/admin-records': (context) => AdminRecordsScreen(),
-            },
+            onGenerateRoute: onGenerateRoute,
             debugShowCheckedModeBanner: false,
           );
         },

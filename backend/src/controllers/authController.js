@@ -1,6 +1,6 @@
 const { validationResult } = require('express-validator');
 const authService = require('../services/authService');
-const { TokenBlacklist } = require('../models');
+const { TokenBlacklist, User } = require('../models');
 const jwt = require('jsonwebtoken');
 
 // Register new user
@@ -74,6 +74,7 @@ exports.login = async (req, res, next) => {
         user: result.user,
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
+        mustChangePassword: result.mustChangePassword || false,
       });
     } catch (error) {
       if (error.message === 'Invalid credentials') {
@@ -237,6 +238,182 @@ exports.changePassword = async (req, res, next) => {
       }
       throw error;
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Force password change on first login
+exports.forcePasswordChange = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        error: 'Invalid password',
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update password and set mustChangePassword to false
+    await user.update({
+      password: newPassword,
+      mustChangePassword: false,
+    });
+
+    res.json({
+      message: 'Password changed successfully. Please login again with your new password.',
+    });
+  } catch (error) {
+    console.error('Error forcing password change:', error);
+    next(error);
+  }
+};
+
+// Forgot password - request reset
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        message: 'If an account with that email exists, a password reset code has been sent.',
+      });
+    }
+
+    // Generate 6-digit reset code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetCodeExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    await user.update({
+      resetPasswordToken: resetCode,
+      resetPasswordExpires: resetCodeExpiry,
+    });
+
+    // Send reset code via email
+    const emailService = require('../services/emailService');
+
+    try {
+      await emailService.sendPasswordResetCodeEmail(user, resetCode);
+    } catch (emailError) {
+      console.error('Failed to send password reset code email:', emailError);
+      // Clear the reset code if email fails
+      await user.update({
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      });
+      return res.status(500).json({
+        error: 'Failed to send reset code email',
+        message: 'There was an error sending the reset code. Please try again later.',
+      });
+    }
+
+    res.json({
+      message: 'If an account with that email exists, a password reset code has been sent.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reset password with code
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { resetCode, newPassword } = req.body;
+
+    if (!resetCode || !newPassword) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Reset code and new password are required',
+      });
+    }
+
+    // Find user with valid reset code
+    const user = await User.findOne({
+      where: {
+        resetPasswordToken: resetCode,
+        resetPasswordExpires: { [require('sequelize').Op.gt]: new Date() },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        error: 'Invalid or expired code',
+        message: 'The password reset code is invalid or has expired.',
+      });
+    }
+
+    // Update password and clear reset code
+    await user.update({
+      password: newPassword,
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+      mustChangePassword: false,
+    });
+
+    // Send confirmation email
+    const emailService = require('../services/emailService');
+    try {
+      await emailService.sendPasswordChangeNotification(user);
+    } catch (emailError) {
+      console.error('Failed to send password change confirmation:', emailError);
+    }
+
+    res.json({
+      message: 'Password has been reset successfully. You can now log in with your new password.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Verify reset code
+exports.verifyResetCode = async (req, res, next) => {
+  try {
+    const { resetCode } = req.params;
+
+    const user = await User.findOne({
+      where: {
+        resetPasswordToken: resetCode,
+        resetPasswordExpires: { [require('sequelize').Op.gt]: new Date() },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        valid: false,
+        message: 'The password reset code is invalid or has expired.',
+      });
+    }
+
+    res.json({
+      valid: true,
+      message: 'Code is valid',
+    });
   } catch (error) {
     next(error);
   }

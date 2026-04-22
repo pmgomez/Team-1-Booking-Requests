@@ -17,10 +17,11 @@ const sequelizeOptions = {
   dialect: 'postgres',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
   pool: {
-    max: 5,
+    max: 10,
     min: 0,
-    acquire: 30000,
+    acquire: 60000,
     idle: 10000,
+    evict: 60000, // Evict connections that have been idle for 60 seconds
   },
   define: {
     timestamps: true,
@@ -32,6 +33,17 @@ const sequelizeOptions = {
       require: true,
       rejectUnauthorized: false
     } : false,
+  },
+  retry: {
+    max: 3, // Retry failed queries up to 3 times
+    match: [
+      /SequelizeConnectionError/,
+      /Connection terminated/,
+      /Connection refused/,
+      /Connection lost/,
+      /ETIMEDOUT/,
+      /ECONNRESET/,
+    ],
   },
 };
 

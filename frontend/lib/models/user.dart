@@ -5,8 +5,10 @@ class User {
   final String lastName;
   final String? phone;
   final String role;
+  final int? assignedParishId;
   final int? preferredParishId;
   final bool isActive;
+  final bool mustChangePassword;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -17,8 +19,10 @@ class User {
     required this.lastName,
     this.phone,
     required this.role,
+    this.assignedParishId,
     this.preferredParishId,
     required this.isActive,
+    this.mustChangePassword = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -31,8 +35,10 @@ class User {
       lastName: json['lastName'],
       phone: json['phone'],
       role: json['role'],
+      assignedParishId: json['assignedParishId'],
       preferredParishId: json['preferredParishId'],
       isActive: json['isActive'] ?? true,
+      mustChangePassword: json['mustChangePassword'] ?? false,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
@@ -46,14 +52,22 @@ class User {
       'lastName': lastName,
       'phone': phone,
       'role': role,
+      'assignedParishId': assignedParishId,
       'preferredParishId': preferredParishId,
       'isActive': isActive,
+      'mustChangePassword': mustChangePassword,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
   String get fullName => '$firstName $lastName';
+
+  /// Check if user belongs to a parish (not diocese-level)
+  bool get hasParish => assignedParishId != null || preferredParishId != null;
+
+  /// Get the effective parish ID (assigned first, then preferred)
+  int? get effectiveParishId => assignedParishId ?? preferredParishId;
 
   User copyWith({
     int? id,
@@ -62,8 +76,10 @@ class User {
     String? lastName,
     String? phone,
     String? role,
+    int? assignedParishId,
     int? preferredParishId,
     bool? isActive,
+    bool? mustChangePassword,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -74,8 +90,10 @@ class User {
       lastName: lastName ?? this.lastName,
       phone: phone ?? this.phone,
       role: role ?? this.role,
+      assignedParishId: assignedParishId ?? this.assignedParishId,
       preferredParishId: preferredParishId ?? this.preferredParishId,
       isActive: isActive ?? this.isActive,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

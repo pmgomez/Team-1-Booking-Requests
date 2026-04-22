@@ -65,8 +65,21 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  mustChangePassword: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
   lastLoginAt: {
     type: DataTypes.DATE,
+  },
+  // Password reset fields
+  resetPasswordToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  resetPasswordExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
   },
 }, {
   tableName: 'users',
@@ -116,6 +129,7 @@ User.prototype.toSafeObject = function() {
     assignedParishId: this.assignedParishId,
     preferredParishId: this.preferredParishId,
     isActive: this.isActive,
+    mustChangePassword: this.mustChangePassword,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

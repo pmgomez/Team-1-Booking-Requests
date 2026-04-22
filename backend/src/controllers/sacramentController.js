@@ -158,6 +158,12 @@ exports.createSacramentBooking = (sacramentType) => async (req, res) => {
       preferredPriest,
       additionalNotes,
       godparents = [],
+      uploadedFile,
+      filePath,
+      fileUrl,
+      fileSize,
+      mimeType,
+      documentType = 'other',
       ...bookingData
     } = req.body;
 
@@ -211,6 +217,24 @@ exports.createSacramentBooking = (sacramentType) => async (req, res) => {
         notes: gp.notes,
       }));
       await Godparent.bulkCreate(godparentRecords);
+    }
+
+    // Link uploaded file to booking if provided
+    if (uploadedFile && filePath && fileUrl && fileSize && mimeType) {
+      await BookingDocument.create({
+        bookingType: sacramentType,
+        bookingId: booking.id,
+        documentType: documentType,
+        fileName: uploadedFile,
+        filePath,
+        fileUrl,
+        fileSize: parseInt(fileSize),
+        mimeType,
+        uploadedBy: req.user.userId,
+      });
+      console.log(`Created booking document for file ${uploadedFile} linked to ${sacramentType} booking ${booking.id}`);
+    } else if (uploadedFile) {
+      console.log(`File ${uploadedFile} uploaded but missing file details in request body`);
     }
 
     // Send confirmation email
@@ -506,6 +530,114 @@ exports.deleteSacramentBooking = (sacramentType) => async (req, res) => {
   } catch (error) {
     console.error(`Error deleting ${sacramentType} booking:`, error);
     res.status(500).json({ error: `Failed to delete ${sacramentType} booking` });
+  }
+};
+
+// Attach document to sacrament booking (generic)
+exports.attachDocument = (sacramentType) => async (req, res) => {
+  try {
+    const config = SACRAMENT_CONFIG[sacramentType];
+    if (!config) {
+      return res.status(400).json({ error: 'Invalid sacrament type' });
+    }
+
+    const { id } = req.params;
+    const { documentType } = req.body;
+
+    // Validate booking exists
+    const booking = await config.model.findByPk(id);
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Check permissions - only owner or admin can add documents
+    const isOwner = booking.userId === req.user.userId;
+    const isAdmin = ['parish_admin', 'parish_staff', 'diocese_staff', 'diocese_admin'].includes(
+      req.user.role
+    );
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to add documents to this booking' });
+    }
+
+    // Handle file upload if present
+    if (req.file) {
+      const fileService = require('../services/fileService');
+      
+      // Save file to permanent location
+      const fileData = await fileService.saveFile(
+        req.file,
+        req.user.userId,
+        `${sacramentType}-${id}`
+      );
+
+      // Create BookingDocument record in database
+      const bookingDocument = await BookingDocument.create({
+        bookingType: sacramentType,
+        bookingId: parseInt(id),
+        documentType: documentType || 'other',
+        fileName: fileData.filename,
+        filePath: fileData.path,
+        fileUrl: fileData.url,
+        fileSize: fileData.size,
+        mimeType: fileData.mimetype,
+        uploadedBy: req.user.userId,
+      });
+
+      console.log(`Document attached to ${sacramentType} booking ${id}:`, bookingDocument.id);
+
+      return res.status(201).json({
+        message: 'Document attached successfully',
+        document: {
+          id: bookingDocument.id,
+          documentType: bookingDocument.documentType,
+          fileName: bookingDocument.fileName,
+          fileUrl: bookingDocument.fileUrl,
+          isVerified: bookingDocument.isVerified,
+          createdAt: bookingDocument.createdAt,
+        },
+      });
+    }
+
+    // If no file, check if it's a URL-based document reference
+    const { fileUrl, fileName: reqFileName, fileSize, mimeType } = req.body;
+    if (fileUrl && reqFileName) {
+      const bookingDocument = await BookingDocument.create({
+        bookingType: sacramentType,
+        bookingId: parseInt(id),
+        documentType: documentType || 'other',
+        fileName: reqFileName,
+        filePath: '',
+        fileUrl: fileUrl,
+        fileSize: parseInt(fileSize) || 0,
+        mimeType: mimeType || 'application/octet-stream',
+        uploadedBy: req.user.userId,
+      });
+
+      return res.status(201).json({
+        message: 'Document reference added successfully',
+        document: {
+          id: bookingDocument.id,
+          documentType: bookingDocument.documentType,
+          fileName: bookingDocument.fileName,
+          fileUrl: bookingDocument.fileUrl,
+          isVerified: bookingDocument.isVerified,
+        },
+      });
+    }
+
+    return res.status(400).json({ error: 'No file provided' });
+  } catch (error) {
+    console.error(`Error attaching document to ${sacramentType} booking:`, error);
+    // Clean up uploaded file if there was an error
+    if (req.file && req.file.path) {
+      try {
+        require('fs').unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+    }
+    res.status(500).json({ error: 'Failed to attach document', details: error.message });
   }
 };
 

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { BookingDocument } = require('../models');
 
 class FileService {
   constructor() {
@@ -12,6 +13,7 @@ class FileService {
       'image/png',
       'application/pdf'
     ];
+    this.allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
   }
 
   /**
@@ -28,9 +30,16 @@ class FileService {
       throw new Error(`File too large. Maximum size is ${maxSizeMB}MB`);
     }
 
-    // Check file type
-    if (!this.allowedTypes.includes(file.mimetype)) {
-      throw new Error(`Invalid file type. Allowed types: ${this.allowedTypes.join(', ')}`);
+    // Check file type - accept by MIME type OR by file extension
+    // Extension check covers cases where the client sends a generic mimetype (e.g., application/octet-stream)
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mimeValid = this.allowedTypes.includes(file.mimetype);
+    const extValid = this.allowedExtensions.has(ext);
+
+    if (!mimeValid && !extValid) {
+      throw new Error(
+        `Invalid file type. Only JPEG, PNG, and PDF files are allowed.`
+      );
     }
 
     return true;
@@ -39,7 +48,7 @@ class FileService {
   /**
    * Moves file from temp to permanent location
    */
-  async saveFile(file, userId, category = 'general') {
+  async saveFile(file, userId, category = 'general', bookingType = null, bookingId = null, documentType = 'other') {
     try {
       this.validateFile(file);
 
@@ -55,10 +64,14 @@ class FileService {
       const fileExtension = path.extname(file.originalname);
       const fileName = `${category}-${uuidv4()}${fileExtension}`;
       const filePath = path.join(categoryDir, fileName);
+      const fileUrl = `/uploads/documents/${userId}/${category}/${fileName}`;
 
       // Move file from temp to permanent location
       const tempFilePath = file.path;
       fs.renameSync(tempFilePath, filePath);
+
+      // Note: BookingDocument record will be created when booking is created,
+      // using the file details returned here.
 
       return {
         filename: fileName,
@@ -66,7 +79,7 @@ class FileService {
         originalName: file.originalname,
         size: file.size,
         mimetype: file.mimetype,
-        url: `/uploads/documents/${userId}/${category}/${fileName}`
+        url: fileUrl
       };
     } catch (error) {
       // Clean up temp file if validation fails

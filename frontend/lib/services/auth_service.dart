@@ -12,6 +12,9 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._internal();
 
+  bool _mustChangePassword = false;
+  bool get mustChangePassword => _mustChangePassword;
+
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'email',
@@ -112,6 +115,7 @@ class AuthService {
           success: true,
           data: _currentUser,
           message: data['message'],
+          mustChangePassword: data['mustChangePassword'] ?? false,
         );
       } else {
         final errorData = json.decode(response.body);
@@ -244,6 +248,7 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['user'];
         _currentUser = User.fromJson(data);
+        _mustChangePassword = false; // Reset flag on successful fetch
         
         // Update stored user data
         SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -264,6 +269,14 @@ class AuthService {
             message: AppConstants.unauthorizedErrorMessage,
           );
         }
+      } else if (ApiConfig.isPasswordChangeRequired(response)) {
+        // Password change required - set flag and return specific response
+        _mustChangePassword = true;
+        return ApiResponse<User>(
+          success: false,
+          message: 'Password change required',
+          mustChangePassword: true,
+        );
       } else {
         return ApiResponse<User>(
           success: false,
@@ -383,6 +396,60 @@ class AuthService {
         if (refreshSuccess) {
           return await changePassword(
             oldPassword: oldPassword,
+            newPassword: newPassword,
+          ); // Retry after refresh
+        } else {
+          return ApiResponse<void>(
+            success: false,
+            message: AppConstants.unauthorizedErrorMessage,
+          );
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<void>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to change password',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<void>(
+        success: false,
+        message: AppConstants.networkErrorMessage,
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Force password change on first login
+  Future<ApiResponse<void>> forcePasswordChange({
+    required String newPassword,
+  }) async {
+    if (_accessToken == null) {
+      return ApiResponse<void>(
+        success: false,
+        message: 'User not authenticated',
+      );
+    }
+
+    try {
+      final response = await ApiConfig.postWithAuth(
+        ApiConfig.forcePasswordChangeEndpoint,
+        _accessToken!,
+        json.encode({
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return ApiResponse<void>(
+          success: true,
+          message: json.decode(response.body)['message'],
+        );
+      } else if (response.statusCode == 401) {
+        // Try to refresh token and retry
+        bool refreshSuccess = await refreshTokenValue();
+        if (refreshSuccess) {
+          return await forcePasswordChange(
             newPassword: newPassword,
           ); // Retry after refresh
         } else {

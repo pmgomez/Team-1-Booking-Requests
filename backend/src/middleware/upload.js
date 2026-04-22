@@ -28,6 +28,14 @@ const storage = multer.diskStorage({
   }
 });
 
+// File extensions mapping for fallback validation
+const extToMimetype = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.pdf': 'application/pdf',
+};
+
 // File filter to allow specific types
 const fileFilter = (req, file, cb) => {
   const allowedTypes = process.env.ALLOWED_FILE_TYPES?.split(',') || [
@@ -35,11 +43,27 @@ const fileFilter = (req, file, cb) => {
     'image/png',
     'application/pdf'
   ];
-  
-  if (allowedTypes.includes(file.mimetype)) {
+
+  const ext = path.extname(file.originalname).toLowerCase();
+  const inferredMimetype = extToMimetype[ext];
+
+  console.log('📁 File upload attempt:', {
+    originalName: file.originalname,
+    mimetype: file.mimetype,
+    fieldname: file.fieldname,
+    extension: ext,
+  });
+
+  // Accept if MIME type matches OR if we can infer from extension
+  const mimeMatches = allowedTypes.includes(file.mimetype);
+  const extValid = inferredMimetype && allowedTypes.includes(inferredMimetype);
+
+  if (mimeMatches || extValid) {
+    console.log(`✅ File type accepted (mimetype: ${mimeMatches}, extension: ${extValid})`);
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
+    console.log(`❌ File type rejected. mimetype="${file.mimetype}", ext="${ext}"`, '\n   Allowed types:', allowedTypes);
+    cb(new Error(`Invalid file type. Only JPEG, PNG, and PDF files are allowed.`), false);
   }
 };
 

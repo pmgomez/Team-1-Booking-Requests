@@ -1,6 +1,21 @@
-const { User, Parish, Booking, MassIntention, SystemConfiguration } = require('../models');
+const {
+  User,
+  Parish,
+  Booking,
+  MassIntention,
+  SystemConfiguration,
+  BaptismBooking,
+  WeddingBooking,
+  ConfirmationBooking,
+  EucharistBooking,
+  ReconciliationBooking,
+  AnointingSickBooking,
+  FuneralMassBooking,
+} = require('../models');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
+const { generateRandomPassword } = require('../utils/passwordUtils');
+const emailService = require('../services/emailService');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
@@ -13,6 +28,7 @@ const getDashboardStats = async (req, res) => {
     let bookingWhereClause = {};
     let userWhereClause = {};
 
+    // Parish-level users: restrict to their assigned parish
     if (user.role === 'parish_admin' || user.role === 'parish_staff') {
       if (user.assignedParishId) {
         parishWhereClause = { id: user.assignedParishId };
@@ -21,81 +37,106 @@ const getDashboardStats = async (req, res) => {
       }
     }
 
-    if (parishId && user.role === 'diocese_admin') {
-      parishWhereClause = { id: parishId };
-      bookingWhereClause = { parishId };
-      userWhereClause = { assignedParishId: parishId };
+    // Diocese-level users: can filter by specific parish or see all
+    if (user.role === 'diocese_admin' || user.role === 'diocese_staff') {
+      if (parishId) {
+        parishWhereClause = { id: parishId };
+        bookingWhereClause = { parishId };
+        userWhereClause = { assignedParishId: parishId };
+      }
+      // If no parishId, clauses remain empty = all parishes/bookings/users
     }
 
-    // Get counts
-    const totalParishes = await Parish.count({ where: parishWhereClause });
-    const totalUsers = await User.count({ where: userWhereClause });
-    const totalBookings = await Booking.count({ where: bookingWhereClause });
-    const pendingBookings = await Booking.count({
+    // Get counts from ALL booking tables
+    const bookingTables = [
+      { model: BaptismBooking, type: 'baptism' },
+      { model: WeddingBooking, type: 'wedding' },
+      { model: ConfirmationBooking, type: 'confirmation' },
+      { model: EucharistBooking, type: 'eucharist' },
+      { model: ReconciliationBooking, type: 'reconciliation' },
+      { model: AnointingSickBooking, type: 'anointing_sick' },
+      { model: FuneralMassBooking, type: 'funeral_mass' },
+    ];
+
+    let totalBookings = 0;
+    let pendingBookings = 0;
+    let approvedBookings = 0;
+    let thisMonthBookings = 0;
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const endOfMonth = new Date();
+    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+    endOfMonth.setDate(1);
+    endOfMonth.setHours(0, 0, 0, 0);
+
+    for (const { model } of bookingTables) {
+      const total = await model.count({ where: bookingWhereClause });
+      const pending = await model.count({
+        where: { ...bookingWhereClause, status: 'pending' },
+      });
+      const approved = await model.count({
+        where: { ...bookingWhereClause, status: 'approved' },
+      });
+      const thisMonth = await model.count({
+        where: {
+          ...bookingWhereClause,
+          preferredDate: {
+            [Op.gte]: startOfMonth,
+            [Op.lt]: endOfMonth,
+          },
+        },
+      });
+
+      totalBookings += total;
+      pendingBookings += pending;
+      approvedBookings += approved;
+      thisMonthBookings += thisMonth;
+    }
+
+    // Also count mass intentions
+    const massIntentionTotal = await MassIntention.count({ where: bookingWhereClause });
+    const massIntentionPending = await MassIntention.count({
       where: { ...bookingWhereClause, status: 'pending' },
     });
-    const confirmedBookings = await Booking.count({
-      where: { ...bookingWhereClause, status: 'confirmed' },
+    const massIntentionApproved = await MassIntention.count({
+      where: { ...bookingWhereClause, status: 'approved' },
     });
-
-    // Get recent bookings
-    const recentBookings = await Booking.findAll({
-      where: bookingWhereClause,
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email'],
+    const massIntentionThisMonth = await MassIntention.count({
+      where: {
+        ...bookingWhereClause,
+        massSchedule: {
+          [Op.gte]: startOfMonth,
+          [Op.lt]: endOfMonth,
         },
-        {
-          model: Parish,
-          as: 'parish',
-          attributes: ['id', 'name'],
-        },
-      ],
-      order: [['createdAt', 'DESC']],
-      limit: 10,
-    });
-
-    // Get bookings by status
-    const bookingsByStatus = await Booking.findAll({
-      where: bookingWhereClause,
-      attributes: [
-        'status',
-        [sequelize.fn('COUNT', sequelize.col('Booking.id')), 'count'],
-      ],
-      group: ['status'],
-      raw: true,
-    });
-
-    // Get bookings by type
-    const bookingsByType = await Booking.findAll({
-      where: bookingWhereClause,
-      attributes: [
-        'bookingType',
-        [sequelize.fn('COUNT', sequelize.col('Booking.id')), 'count'],
-      ],
-      group: ['bookingType'],
-      raw: true,
-    });
-
-    res.json({
-      summary: {
-        totalParishes,
-        totalUsers,
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
       },
-      recentBookings,
-      bookingsByStatus: bookingsByStatus.reduce((acc, item) => {
-        acc[item.status] = parseInt(item.count);
-        return acc;
-      }, {}),
-      bookingsByType: bookingsByType.reduce((acc, item) => {
-        acc[item.bookingType] = parseInt(item.count);
-        return acc;
-      }, {}),
+    });
+
+    totalBookings += massIntentionTotal;
+    pendingBookings += massIntentionPending;
+    approvedBookings += massIntentionApproved;
+    thisMonthBookings += massIntentionThisMonth;
+
+    // Get parish and user counts
+    const totalParishes = await Parish.count({ where: parishWhereClause });
+    const totalUsers = await User.count({ where: userWhereClause });
+
+    // Debug logging
+    console.log('Dashboard stats - User role:', user.role);
+    console.log('Dashboard stats - Parish where clause:', parishWhereClause);
+    console.log('Dashboard stats - Total parishes:', totalParishes);
+    console.log('Dashboard stats - Total users:', totalUsers);
+
+    // Return dashboard stats
+    res.json({
+      totalParishes,
+      totalUsers,
+      totalBookings,
+      pendingBookings,
+      approvedBookings,
+      thisMonthBookings,
     });
   } catch (error) {
     console.error('Error getting dashboard stats:', error);
@@ -104,6 +145,21 @@ const getDashboardStats = async (req, res) => {
 };
 
 // ==================== USER MANAGEMENT ====================
+
+// Role hierarchy levels for user management
+const ROLE_HIERARCHY = {
+  parishioner: 1,
+  parish_staff: 2,
+  priest: 3,
+  parish_admin: 4,
+  diocese_staff: 5,
+  diocese_admin: 6,
+};
+
+// Helper to check if a user can manage a target role
+const canManageRole = (requestingUserRole, targetRole) => {
+  return ROLE_HIERARCHY[requestingUserRole] > ROLE_HIERARCHY[targetRole];
+};
 
 // Get all users (with filtering and pagination)
 const getAllUsers = async (req, res) => {
@@ -117,11 +173,63 @@ const getAllUsers = async (req, res) => {
       isActive,
     } = req.query;
 
+    const requestingUser = req.user;
     const offset = (page - 1) * limit;
     const whereClause = {};
 
-    if (role) whereClause.role = role;
-    if (parishId) whereClause.assignedParishId = parishId;
+    // Apply parish-level restrictions based on user role
+    if (requestingUser.role === 'parish_admin') {
+      // Parish admins can only view users in their assigned parish
+      whereClause.assignedParishId = requestingUser.assignedParishId;
+      // They can only view parish_staff, priest, and parishioner roles
+      whereClause.role = { [Op.in]: ['parish_staff', 'priest', 'parishioner'] };
+    } else if (requestingUser.role === 'parish_staff') {
+      // Parish staff can only view users in their assigned parish
+      whereClause.assignedParishId = requestingUser.assignedParishId;
+      // They can only view priest and parishioner roles
+      whereClause.role = { [Op.in]: ['priest', 'parishioner'] };
+    } else if (requestingUser.role === 'diocese_staff') {
+      // diocese_staff cannot view diocese_staff or diocese_admin users
+      whereClause.role = { [Op.notIn]: ['diocese_staff', 'diocese_admin'] };
+    }
+
+    // Apply additional filters if provided
+    if (role) {
+      // Validate role permissions based on user role
+      if (requestingUser.role === 'parish_admin') {
+        if (!['parish_staff', 'priest', 'parishioner'].includes(role)) {
+          return res.status(403).json({
+            error: 'Insufficient permissions',
+            message: 'Parish administrators can only view parish staff, priests, and parishioners.',
+          });
+        }
+      } else if (requestingUser.role === 'parish_staff') {
+        if (!['priest', 'parishioner'].includes(role)) {
+          return res.status(403).json({
+            error: 'Insufficient permissions',
+            message: 'Parish staff can only view priests and parishioners.',
+          });
+        }
+      } else if (requestingUser.role === 'diocese_staff') {
+        if (['diocese_staff', 'diocese_admin'].includes(role)) {
+          return res.status(403).json({
+            error: 'Insufficient permissions',
+            message: 'You do not have permission to view users with this role.',
+          });
+        }
+      }
+      whereClause.role = role;
+    }
+    
+    // Parish-level users cannot override parish filter
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff') {
+      // Ensure they can only see their own parish
+      whereClause.assignedParishId = requestingUser.assignedParishId;
+    } else if (parishId) {
+      // Diocese-level users can filter by specific parish
+      whereClause.assignedParishId = parishId;
+    }
+    
     if (isActive !== undefined) whereClause.isActive = isActive === 'true';
 
     if (search) {
@@ -165,6 +273,7 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
+    const requestingUser = req.user;
 
     const user = await User.findByPk(id, {
       include: [
@@ -180,6 +289,47 @@ const getUserById = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Apply parish-level restrictions
+    if (requestingUser.role === 'parish_admin') {
+      // Parish admins can only view users in their assigned parish
+      if (user.assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only view users in your assigned parish.',
+        });
+      }
+      // They can only view parish_staff, priest, and parishioner roles
+      if (!['parish_staff', 'priest', 'parishioner'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish administrators can only view parish staff, priests, and parishioners.',
+        });
+      }
+    } else if (requestingUser.role === 'parish_staff') {
+      // Parish staff can only view users in their assigned parish
+      if (user.assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only view users in your assigned parish.',
+        });
+      }
+      // They can only view priest and parishioner roles
+      if (!['priest', 'parishioner'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish staff can only view priests and parishioners.',
+        });
+      }
+    } else if (requestingUser.role === 'diocese_staff') {
+      // diocese_staff cannot view diocese_staff or diocese_admin users
+      if (['diocese_staff', 'diocese_admin'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You do not have permission to view this user.',
+        });
+      }
+    }
+
     res.json(user.toSafeObject());
   } catch (error) {
     console.error('Error getting user:', error);
@@ -192,7 +342,6 @@ const createUser = async (req, res) => {
   try {
     const {
       email,
-      password,
       firstName,
       lastName,
       phone,
@@ -208,24 +357,123 @@ const createUser = async (req, res) => {
       });
     }
 
+    // Role-based user creation permissions:
+    // - diocese_admin can create all users
+    // - diocese_staff can create all except diocese_admin
+    // - parish_admin can create all except diocese_admin and diocese_staff
+    // - parish_staff can only create priest (same parish) and parishioner (same parish)
+    // - priests and parishioners cannot create users
+    
+    const requestingUser = req.user;
+    
+    // Check if the requesting user can create the target role
+    if (requestingUser.role === 'diocese_admin') {
+      // diocese_admin can create any role
+    } else if (requestingUser.role === 'diocese_staff') {
+      // diocese_staff can create all roles except diocese_admin
+      if (role === 'diocese_admin') {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Diocese staff cannot create diocese administrators.',
+        });
+      }
+    } else if (requestingUser.role === 'parish_admin') {
+      // parish_admin can only create parish_staff, priest, and parishioner (same parish only)
+      if (!['parish_staff', 'priest', 'parishioner'].includes(role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish administrators can only create parish staff, priests, and parishioners.',
+        });
+      }
+      
+      // Verify the assignedParishId matches the admin's assigned parish
+      if (assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish administrators can only create users for their assigned parish.',
+        });
+      }
+    } else if (requestingUser.role === 'parish_staff') {
+      // parish_staff can only create priest and parishioner of the same parish
+      if (!['priest', 'parishioner'].includes(role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish staff can only create priests and parishioners.',
+        });
+      }
+      
+      // Verify the assignedParishId matches the staff's assigned parish
+      if (assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish staff can only create users for their assigned parish.',
+        });
+      }
+    } else {
+      // Only allow admin roles to create users
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        message: 'You do not have permission to create users.',
+      });
+    }
+
+    // For diocese-level roles, set parish fields to null
+    // since diocese personnel don't belong to a specific parish
+    const isDioceseLevel = ['diocese_staff', 'diocese_admin'].includes(role);
+    let finalAssignedParishId = assignedParishId;
+    
+    if (isDioceseLevel) {
+      finalAssignedParishId = null;
+    } else if (requestingUser.role === 'parish_staff' && ['priest', 'parishioner'].includes(role)) {
+      // parish_staff can only create users for their assigned parish
+      finalAssignedParishId = requestingUser.assignedParishId;
+    } else if (!isDioceseLevel && !finalAssignedParishId) {
+      // Non-diocese roles require a parish assignment
+      return res.status(400).json({
+        error: 'Missing parish assignment',
+        message: 'Non-diocese level roles must be assigned to a parish.',
+      });
+    } else if (!isDioceseLevel && finalAssignedParishId) {
+      // Validate that the parish exists
+      const parish = await Parish.findByPk(finalAssignedParishId);
+      if (!parish) {
+        return res.status(400).json({
+          error: 'Invalid parish',
+          message: 'The specified parish does not exist.',
+        });
+      }
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
+    // Generate random password
+    const tempPassword = generateRandomPassword(12);
+
     const user = await User.create({
       email,
-      password,
+      password: tempPassword,
       firstName,
       lastName,
       phone,
       role,
-      assignedParishId,
+      assignedParishId: finalAssignedParishId,
+      mustChangePassword: true, // Force password change on first login
     });
 
+    // Send email with credentials
+    try {
+      await emailService.sendWelcomeEmail(user, tempPassword);
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail the request if email fails
+    }
+
     res.status(201).json({
-      message: 'User created successfully',
+      message: 'User created successfully. An email with login credentials has been sent to the user.',
       user: user.toSafeObject(),
     });
   } catch (error) {
@@ -253,6 +501,70 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const requestingUser = req.user;
+
+    // Apply parish-level restrictions for viewing/editing users
+    if (requestingUser.role === 'parish_admin') {
+      // Parish admins can only edit users in their assigned parish
+      if (user.assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only edit users in your assigned parish.',
+        });
+      }
+      // They can only edit parish_staff, priest, and parishioner roles
+      if (!['parish_staff', 'priest', 'parishioner'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish administrators can only edit parish staff, priests, and parishioners.',
+        });
+      }
+      // They cannot change the role to anything outside their allowed roles
+      if (role && !['parish_staff', 'priest', 'parishioner'].includes(role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish administrators can only assign parish staff, priest, or parishioner roles.',
+        });
+      }
+    } else if (requestingUser.role === 'parish_staff') {
+      // Parish staff can only edit users in their assigned parish
+      if (user.assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only edit users in your assigned parish.',
+        });
+      }
+      // They can only edit priest and parishioner roles
+      if (!['priest', 'parishioner'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish staff can only edit priests and parishioners.',
+        });
+      }
+      // They cannot change the role at all
+      if (role) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish staff cannot change user roles.',
+        });
+      }
+    } else if (requestingUser.role === 'diocese_staff') {
+      // diocese_staff cannot edit diocese_staff or diocese_admin users
+      if (['diocese_staff', 'diocese_admin'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Diocese staff cannot edit users with equal or higher roles.',
+        });
+      }
+      // Additional validation: diocese_staff cannot promote to diocese_staff or diocese_admin
+      if (role && ['diocese_staff', 'diocese_admin'].includes(role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Diocese staff cannot assign roles equal to or higher than their own.',
+        });
+      }
+    }
+
     // Check email uniqueness if changing email
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
@@ -261,13 +573,21 @@ const updateUser = async (req, res) => {
       }
     }
 
+    // Determine the final role (if changing)
+    const finalRole = role || user.role;
+
+    // For diocese-level roles, set parish fields to null
+    // since diocese personnel don't belong to a specific parish
+    const isDioceseLevel = ['diocese_staff', 'diocese_admin'].includes(finalRole);
+    const finalAssignedParishId = isDioceseLevel ? null : (assignedParishId !== undefined ? assignedParishId : user.assignedParishId);
+
     await user.update({
       email: email || user.email,
       firstName: firstName || user.firstName,
       lastName: lastName || user.lastName,
       phone: phone || user.phone,
-      role: role || user.role,
-      assignedParishId: assignedParishId !== undefined ? assignedParishId : user.assignedParishId,
+      role: finalRole,
+      assignedParishId: finalAssignedParishId,
       isActive: isActive !== undefined ? isActive : user.isActive,
     });
 
@@ -285,10 +605,91 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+    const requestingUser = req.user;
 
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent self-deletion
+    if (parseInt(id) === req.user.userId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Apply parish-level restrictions for deleting users
+    if (requestingUser.role === 'parish_admin') {
+      // Parish admins can only delete users in their assigned parish
+      if (user.assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only delete users in your assigned parish.',
+        });
+      }
+      // They can only delete parish_staff, priest, and parishioner roles
+      if (!['parish_staff', 'priest', 'parishioner'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish administrators can only delete parish staff, priests, and parishioners.',
+        });
+      }
+    } else if (requestingUser.role === 'parish_staff') {
+      // Parish staff can only delete users in their assigned parish
+      if (user.assignedParishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only delete users in your assigned parish.',
+        });
+      }
+      // They can only delete priest and parishioner roles
+      if (!['priest', 'parishioner'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Parish staff can only delete priests and parishioners.',
+        });
+      }
+    } else if (requestingUser.role === 'diocese_staff') {
+      // diocese_staff cannot delete diocese_staff or diocese_admin users
+      if (['diocese_staff', 'diocese_admin'].includes(user.role)) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'Diocese staff cannot delete users with equal or higher roles.',
+        });
+      }
+    }
+
+    // Check if user is a parishioner with pending bookings
+    if (user.role === 'parishioner') {
+      const bookingTables = [
+        BaptismBooking,
+        WeddingBooking,
+        ConfirmationBooking,
+        EucharistBooking,
+        ReconciliationBooking,
+        AnointingSickBooking,
+        FuneralMassBooking,
+        MassIntention,
+      ];
+
+      let pendingBookingsCount = 0;
+
+      for (const model of bookingTables) {
+        const count = await model.count({
+          where: {
+            userId: id,
+            status: 'pending',
+          },
+        });
+        pendingBookingsCount += count;
+      }
+
+      if (pendingBookingsCount > 0) {
+        return res.status(400).json({
+          error: 'Cannot delete user with pending bookings',
+          message: `This user has ${pendingBookingsCount} pending booking(s). Please approve or decline them first.`,
+          pendingBookingsCount,
+        });
+      }
     }
 
     await user.update({ isActive: false });
@@ -316,14 +717,6 @@ const getAllParishes = async (req, res) => {
 
     const { count, rows } = await Parish.findAndCountAll({
       where: whereClause,
-      include: [
-        {
-          model: SystemConfiguration,
-          as: 'configurations',
-          where: { isActive: true },
-          required: false,
-        },
-      ],
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['name', 'ASC']],
@@ -549,7 +942,7 @@ const deleteConfiguration = async (req, res) => {
 
 // ==================== BOOKING MANAGEMENT ====================
 
-// Get all bookings (admin view)
+// Get all bookings (admin view) - queries ALL booking tables
 const getAllBookings = async (req, res) => {
   try {
     const {
@@ -557,52 +950,94 @@ const getAllBookings = async (req, res) => {
       limit = 20,
       status,
       parishId,
-      bookingType,
+      sacramentType,
       userId,
       startDate,
       endDate,
     } = req.query;
 
+    const user = req.user;
     const offset = (page - 1) * limit;
-    const whereClause = {};
 
-    if (status) whereClause.status = status;
-    if (parishId) whereClause.parishId = parishId;
-    if (bookingType) whereClause.bookingType = bookingType;
-    if (userId) whereClause.userId = userId;
+    // Build where clause based on user role
+    let bookingWhereClause = {};
 
+    if (status) bookingWhereClause.status = status;
+    if (parishId) bookingWhereClause.parishId = parseInt(parishId);
+    if (userId) bookingWhereClause.userId = parseInt(userId);
+
+    // Filter by date range
     if (startDate || endDate) {
-      whereClause.requestedDate = {};
-      if (startDate) whereClause.requestedDate[Op.gte] = startDate;
-      if (endDate) whereClause.requestedDate[Op.lte] = endDate;
+      bookingWhereClause.preferredDate = {};
+      if (startDate) bookingWhereClause.preferredDate[Op.gte] = startDate;
+      if (endDate) bookingWhereClause.preferredDate[Op.lte] = endDate;
     }
 
-    const { count, rows } = await Booking.findAndCountAll({
-      where: whereClause,
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email', 'phone'],
-        },
-        {
-          model: Parish,
-          as: 'parish',
-          attributes: ['id', 'name'],
-        },
-      ],
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      order: [['requestedDate', 'DESC']],
-    });
+    // Restrict parish-level users to their parish
+    if (user.role === 'parish_admin' || user.role === 'parish_staff') {
+      if (user.assignedParishId) {
+        bookingWhereClause.parishId = user.assignedParishId;
+      }
+    }
+
+    // Query all booking tables
+    const allBookings = [];
+
+    const bookingTables = [
+      { model: BaptismBooking, type: 'baptism', include: ['godparents', 'documents'] },
+      { model: WeddingBooking, type: 'wedding', include: ['documents'] },
+      { model: ConfirmationBooking, type: 'confirmation', include: ['documents'] },
+      { model: EucharistBooking, type: 'eucharist', include: ['documents'] },
+      { model: ReconciliationBooking, type: 'reconciliation', include: ['documents'] },
+      { model: AnointingSickBooking, type: 'anointing_sick', include: ['documents'] },
+      { model: FuneralMassBooking, type: 'funeral_mass', include: ['documents'] },
+      { model: MassIntention, type: 'mass_intention', include: [] },
+    ];
+
+    for (const { model, type } of bookingTables) {
+      // Skip if sacramentType filter is set and doesn't match
+      if (sacramentType && sacramentType !== type) continue;
+
+      try {
+        const bookings = await model.findAll({
+          where: bookingWhereClause,
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          order: [['createdAt', 'DESC']],
+        });
+
+        // Add bookingType to each booking
+        const bookingsWithType = bookings.map(booking => ({
+          ...booking.toJSON(),
+          bookingType: type,
+          sacramentType: type,
+        }));
+
+        allBookings.push(...bookingsWithType);
+      } catch (err) {
+        console.error(`Error querying ${type} bookings:`, err);
+        // Continue with other tables even if one fails
+      }
+    }
+
+    // Sort all bookings by createdAt
+    allBookings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Get total count for pagination
+    let totalCount = 0;
+    for (const { model, type } of bookingTables) {
+      if (sacramentType && sacramentType !== type) continue;
+      const count = await model.count({ where: bookingWhereClause });
+      totalCount += count;
+    }
 
     res.json({
-      bookings: rows,
+      bookings: allBookings,
       pagination: {
-        total: count,
+        total: totalCount,
         page: parseInt(page),
         limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit),
+        totalPages: Math.ceil(totalCount / limit),
       },
     });
   } catch (error) {
@@ -611,31 +1046,60 @@ const getAllBookings = async (req, res) => {
   }
 };
 
+// Helper function to find booking across all tables
+const findBookingById = async (id) => {
+  const bookingTables = [
+    { model: BaptismBooking, include: ['godparents', 'documents', 'parish', 'payment'] },
+    { model: WeddingBooking, include: ['documents', 'parish'] },
+    { model: ConfirmationBooking, include: ['documents', 'parish'] },
+    { model: EucharistBooking, include: ['documents', 'parish'] },
+    { model: ReconciliationBooking, include: ['documents', 'parish'] },
+    { model: AnointingSickBooking, include: ['documents', 'parish'] },
+    { model: FuneralMassBooking, include: ['documents', 'parish'] },
+    { model: MassIntention, include: ['parish'] },
+  ];
+
+  for (const { model, include } of bookingTables) {
+    try {
+      const booking = await model.findByPk(id, { include });
+      if (booking) {
+        return {
+          ...booking.toJSON(),
+          bookingType: model.name.replace('Booking', '').toLowerCase(),
+        };
+      }
+    } catch (err) {
+      console.error(`Error querying ${model.name}:`, err);
+    }
+  }
+
+  return null;
+};
+
 // Get single booking by ID
 const getBookingById = async (req, res) => {
   try {
     const { id } = req.params;
+    const requestingUser = req.user;
 
-    const booking = await Booking.findByPk(id, {
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email', 'phone'],
-        },
-        {
-          model: Parish,
-          as: 'parish',
-          attributes: ['id', 'name', 'address', 'contactEmail', 'contactPhone'],
-        },
-      ],
-    });
+    const booking = await findBookingById(id);
 
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    res.json(booking);
+    // Apply parish-level restrictions
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff') {
+      // Parish-level users can only view bookings in their assigned parish
+      if (booking.parishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only view bookings in your assigned parish.',
+        });
+      }
+    }
+
+    res.json({ booking });
   } catch (error) {
     console.error('Error getting booking:', error);
     res.status(500).json({ error: 'Failed to get booking' });
@@ -646,14 +1110,49 @@ const getBookingById = async (req, res) => {
 const updateBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, notes, newRequestedDate } = req.body;
+    const { status, adminNotes } = req.body;
+    const requestingUser = req.user;
 
-    const booking = await Booking.findByPk(id);
+    const bookingTables = [
+      BaptismBooking,
+      WeddingBooking,
+      ConfirmationBooking,
+      EucharistBooking,
+      ReconciliationBooking,
+      AnointingSickBooking,
+      FuneralMassBooking,
+      MassIntention,
+    ];
+
+    let booking = null;
+    let bookingModel = null;
+
+    // Find the booking in all tables
+    for (const model of bookingTables) {
+      const found = await model.findByPk(id);
+      if (found) {
+        booking = found;
+        bookingModel = model;
+        break;
+      }
+    }
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    const validStatuses = ['pending', 'confirmed', 'cancelled', 'completed'];
+    // Apply parish-level restrictions
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff') {
+      // Parish-level users can only manage bookings in their assigned parish
+      if (booking.parishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only manage bookings in your assigned parish.',
+        });
+      }
+    }
+
+    const validStatuses = ['pending', 'approved', 'declined', 'completed', 'rescheduled'];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({
         error: 'Invalid status',
@@ -661,11 +1160,22 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    await booking.update({
+    const updateData = {
       status: status || booking.status,
-      notes: notes !== undefined ? notes : booking.notes,
-      requestedDate: newRequestedDate || booking.requestedDate,
-    });
+    };
+
+    // Add admin notes if provided
+    if (adminNotes !== undefined) {
+      updateData.adminNotes = adminNotes;
+    }
+
+    // Add approval metadata
+    if (status === 'approved' || status === 'declined') {
+      updateData.approvedBy = req.user.userId;
+      updateData.approvedAt = new Date();
+    }
+
+    await booking.update(updateData);
 
     res.json({
       message: `Booking ${status ? status + 'ed' : 'updated'} successfully`,
@@ -681,15 +1191,49 @@ const updateBookingStatus = async (req, res) => {
 const deleteBooking = async (req, res) => {
   try {
     const { id } = req.params;
+    const requestingUser = req.user;
 
-    const booking = await Booking.findByPk(id);
+    const bookingTables = [
+      BaptismBooking,
+      WeddingBooking,
+      ConfirmationBooking,
+      EucharistBooking,
+      ReconciliationBooking,
+      AnointingSickBooking,
+      FuneralMassBooking,
+      MassIntention,
+    ];
+
+    let booking = null;
+
+    // Find the booking in all tables
+    for (const model of bookingTables) {
+      const found = await model.findByPk(id);
+      if (found) {
+        booking = found;
+        break;
+      }
+    }
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    await booking.destroy();
+    // Apply parish-level restrictions
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff') {
+      // Parish-level users can only delete bookings in their assigned parish
+      if (booking.parishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only delete bookings in your assigned parish.',
+        });
+      }
+    }
 
-    res.json({ message: 'Booking deleted successfully' });
+    // Soft delete by setting status to cancelled
+    await booking.update({ status: 'cancelled' });
+
+    res.json({ message: 'Booking cancelled successfully' });
   } catch (error) {
     console.error('Error deleting booking:', error);
     res.status(500).json({ error: 'Failed to delete booking' });
@@ -711,11 +1255,20 @@ const getAllMassIntentions = async (req, res) => {
       endDate,
     } = req.query;
 
+    const requestingUser = req.user;
     const offset = (page - 1) * limit;
     const whereClause = {};
 
+    // Apply parish-level restrictions
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff') {
+      // Parish-level users can only view mass intentions in their assigned parish
+      whereClause.parishId = requestingUser.assignedParishId;
+    } else if (parishId) {
+      // Diocese-level users can filter by specific parish
+      whereClause.parishId = parishId;
+    }
+
     if (status) whereClause.status = status;
-    if (parishId) whereClause.parishId = parishId;
     if (intentionType) whereClause.intentionType = intentionType;
 
     if (startDate || endDate) {
@@ -763,10 +1316,22 @@ const updateMassIntentionStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
+    const requestingUser = req.user;
 
     const intention = await MassIntention.findByPk(id);
     if (!intention) {
       return res.status(404).json({ error: 'Mass intention not found' });
+    }
+
+    // Apply parish-level restrictions
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff') {
+      // Parish-level users can only manage mass intentions in their assigned parish
+      if (intention.parishId !== requestingUser.assignedParishId) {
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          message: 'You can only manage mass intentions in your assigned parish.',
+        });
+      }
     }
 
     const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled'];
