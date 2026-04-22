@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
@@ -29,7 +30,7 @@ class FileService {
     Map<String, String>? additionalFields,
   }) async {
     try {
-      final uri = Uri.parse('${ApiConfig.filesEndpoint}/upload');
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.filesEndpoint}/upload');
       final request = http.MultipartRequest('POST', uri);
 
       // Attach the file
@@ -44,8 +45,14 @@ class FileService {
       // Add authorization header
       request.headers['Authorization'] = 'Bearer $token';
 
-      // Send request
-      final streamedResponse = await request.send();
+      // Send request with timeout
+      final streamedResponse = await request.send()
+        .timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            throw HttpException('Upload timeout - file too large or connection slow');
+          },
+        );
 
       // Convert to Response so we can read the body easily
       final response = await http.Response.fromStream(streamedResponse);
@@ -64,12 +71,35 @@ class FileService {
           success: false,
           message: data['message'] ?? 'Upload failed',
           statusCode: response.statusCode,
+          errors: data['errors'],
         );
       }
-    } catch (e) {
+    } on http.ClientException catch (e) {
+      print('HTTP Client Exception during upload: $e');
       return ApiResponse<Map<String, dynamic>>(
         success: false,
-        message: 'Network error during upload',
+        message: 'Connection error. Please check your internet connection.',
+        errors: [e.toString()],
+      );
+    } on HttpException catch (e) {
+      print('HTTP Exception during upload: $e');
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: e.message,
+        errors: [e.toString()],
+      );
+    } on FormatException catch (e) {
+      print('Invalid response format during upload: $e');
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Server response error. Please try again.',
+        errors: [e.toString()],
+      );
+    } catch (e) {
+      print('Unexpected error during upload: $e');
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error during upload: $e',
         errors: [e.toString()],
       );
     }
@@ -81,7 +111,7 @@ class FileService {
     String category = 'general',
   }) async {
     try {
-      final uri = Uri.parse('${ApiConfig.filesEndpoint}?category=$category');
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.filesEndpoint}?category=$category');
       final response = await http.get(
         uri,
         headers: {'Authorization': 'Bearer $token'},
@@ -120,7 +150,7 @@ class FileService {
   }) async {
     try {
       final uri = Uri.parse(
-          '${ApiConfig.filesEndpoint}/$filename?category=$category');
+          '${ApiConfig.baseUrl}${ApiConfig.filesEndpoint}/$filename?category=$category');
       final response = await http.delete(
         uri,
         headers: {'Authorization': 'Bearer $token'},

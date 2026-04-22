@@ -13,6 +13,7 @@ class CustomTextField extends StatelessWidget {
   final int? maxLines;
   final String? initialValue;
   final bool enabled;
+  final int? maxLength;
 
   const CustomTextField({
     Key? key,
@@ -28,6 +29,7 @@ class CustomTextField extends StatelessWidget {
     this.maxLines = 1,
     this.initialValue,
     this.enabled = true,
+    this.maxLength,
   }) : super(key: key);
 
   @override
@@ -50,6 +52,7 @@ class CustomTextField extends StatelessWidget {
             width: 2,
           ),
         ),
+        counterText: '', // Hide default counter
       ),
       keyboardType: keyboardType,
       obscureText: obscureText,
@@ -57,6 +60,7 @@ class CustomTextField extends StatelessWidget {
       onChanged: onChanged,
       maxLines: maxLines,
       enabled: enabled,
+      maxLength: maxLength,
     );
   }
 }

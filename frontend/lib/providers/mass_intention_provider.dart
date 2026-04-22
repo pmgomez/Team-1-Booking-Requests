@@ -73,6 +73,7 @@ class MassIntentionProvider extends ChangeNotifier {
     required String dateRequested,
     required int parishId,
     required String massSchedule,
+    String? preferredTime,
     String? preferredPriest,
     String? notes,
   }) async {
@@ -86,6 +87,7 @@ class MassIntentionProvider extends ChangeNotifier {
       dateRequested: dateRequested,
       parishId: parishId,
       massSchedule: massSchedule,
+      preferredTime: preferredTime,
       preferredPriest: preferredPriest,
       notes: notes,
     );
@@ -98,6 +100,51 @@ class MassIntentionProvider extends ChangeNotifier {
     } else {
       _setLoading(false);
       _setErrorMessage(result.message ?? 'Failed to create mass intention');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateMassIntention({
+    required int id,
+    required String type,
+    required String intentionDetails,
+    required String donorName,
+    required String dateRequested,
+    required String massSchedule,
+    String? preferredTime,
+    String? preferredPriest,
+    String? notes,
+  }) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+
+    final result = await _massIntentionService.updateMassIntention(
+      id: id,
+      type: type,
+      intentionDetails: intentionDetails,
+      donorName: donorName,
+      dateRequested: dateRequested,
+      massSchedule: massSchedule,
+      preferredTime: preferredTime,
+      preferredPriest: preferredPriest,
+      notes: notes,
+    );
+
+    if (result.success && result.data != null) {
+      final index = _intentions.indexWhere((i) => i.id == id);
+      if (index != -1) {
+        _intentions[index] = result.data!;
+      }
+      if (_selectedIntention?.id == id) {
+        _selectedIntention = result.data;
+      }
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } else {
+      _setLoading(false);
+      _setErrorMessage(result.message ?? 'Failed to update mass intention');
       notifyListeners();
       return false;
     }

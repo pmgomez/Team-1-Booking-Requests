@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { upload } = require('../middleware/upload');
+const { upload, tempDir } = require('../middleware/upload');
 const fileService = require('../services/fileService');
 
 // Upload a file
@@ -15,9 +15,12 @@ router.post('/upload', require('../middleware/auth').authenticateJWT, upload.sin
 
     // Save file to permanent location
     const fileData = await fileService.saveFile(
-      req.file, 
-      req.user.userId, 
-      req.body.category || 'general'
+      req.file,
+      req.user.userId,
+      req.body.category || 'general',
+      req.body.bookingType || req.body.category, // Use category as bookingType if not specified
+      req.body.bookingId,
+      req.body.documentType || 'other'
     );
 
     res.status(201).json({
@@ -30,10 +33,10 @@ router.post('/upload', require('../middleware/auth').authenticateJWT, upload.sin
       try {
         require('fs').unlinkSync(req.file.path);
       } catch (cleanupError) {
-        console.error('Error cleaning up temp file:', cleanupError);
+        // Ignore cleanup errors (file may already be moved/deleted)
       }
     }
-    
+
     next(error);
   }
 });

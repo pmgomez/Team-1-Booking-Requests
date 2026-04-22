@@ -23,6 +23,7 @@ const UpdateMassIntentionUseCase = require('../useCases/massIntention/UpdateMass
 const DeleteMassIntentionUseCase = require('../useCases/massIntention/DeleteMassIntentionUseCase');
 const ApproveMassIntentionUseCase = require('../useCases/massIntention/ApproveMassIntentionUseCase');
 const DeclineMassIntentionUseCase = require('../useCases/massIntention/DeclineMassIntentionUseCase');
+const UpdateMassIntentionStatusUseCase = require('../useCases/massIntention/UpdateMassIntentionStatusUseCase');
 
 // Use Cases - Auth
 const RegisterUserUseCase = require('../useCases/auth/RegisterUserUseCase');
@@ -107,6 +108,10 @@ class Container {
     this._instances.declineMassIntentionUseCase = new DeclineMassIntentionUseCase(
       this._instances.massIntentionRepository,
       this._instances.emailService
+    );
+
+    this._instances.updateMassIntentionStatusUseCase = new UpdateMassIntentionStatusUseCase(
+      this._instances.massIntentionRepository
     );
 
     // ========== USE CASES - AUTH ==========

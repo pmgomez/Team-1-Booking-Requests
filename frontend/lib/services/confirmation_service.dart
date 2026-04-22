@@ -69,6 +69,12 @@ class ConfirmationService {
     required String preferredTimeSlot,
     String? preferredPriest,
     String? additionalNotes,
+    String? uploadedFile,
+    String? filePath,
+    String? fileUrl,
+    int? fileSize,
+    String? mimeType,
+    String? documentType,
   }) async {
     try {
       final requestBody = {
@@ -82,6 +88,12 @@ class ConfirmationService {
         'preferredTimeSlot': preferredTimeSlot,
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
         if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (uploadedFile != null) 'uploadedFile': uploadedFile,
+        if (filePath != null) 'filePath': filePath,
+        if (fileUrl != null) 'fileUrl': fileUrl,
+        if (fileSize != null) 'fileSize': fileSize,
+        if (mimeType != null) 'mimeType': mimeType,
+        if (documentType != null) 'documentType': documentType,
       };
 
       final response = await ApiConfig.postWithAuth(

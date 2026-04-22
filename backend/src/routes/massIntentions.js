@@ -2,11 +2,15 @@ const express = require('express');
 const { body } = require('express-validator');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 const massIntentionController = require('../controllers/massIntentionController');
+const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
 // All mass intention routes require authentication
 router.use(authenticateJWT);
+
+// Attach document to mass intention (must be before /:id route)
+router.post('/:id/document', upload.single('document'), massIntentionController.attachDocument);
 
 // Create a new mass intention
 router.post('/', [
@@ -87,6 +91,12 @@ router.put('/:id', [
 
 // Delete a mass intention
 router.delete('/:id', massIntentionController.deleteMassIntention);
+
+// Update mass intention status (parish_admin/parish_staff/diocese_staff/diocese_admin only)
+router.patch('/:id/status',
+  authorizeRoles('parish_admin', 'parish_staff', 'diocese_staff', 'diocese_admin'),
+  massIntentionController.updateMassIntentionStatus
+);
 
 // Approve a mass intention (parish_staff/priest/diocese_staff/diocese_admin only)
 router.patch('/:id/approve',

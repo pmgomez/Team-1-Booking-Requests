@@ -105,4 +105,31 @@ class Roles {
   static bool canManageRole(String managerRole, String targetRole) {
     return getRoleLevel(managerRole) > getRoleLevel(targetRole);
   }
+
+  /// Get available roles that a user with the given role can assign
+  static List<String> getAvailableRolesForUserManagement(String currentUserRole) {
+    // diocese_admin can assign all roles
+    if (currentUserRole == dioceseAdmin) {
+      return allRoles;
+    }
+    // diocese_staff can only assign roles lower than their own
+    return allRoles.where((role) => getRoleLevel(role) < getRoleLevel(currentUserRole)).toList();
+  }
+
+  /// Check if a user can view another user
+  static bool canViewUser(String viewerRole, String targetRole) {
+    // diocese_admin can view all users
+    if (viewerRole == dioceseAdmin) return true;
+    // diocese_staff cannot view diocese_staff or diocese_admin
+    if (viewerRole == dioceseStaff && [dioceseStaff, dioceseAdmin].contains(targetRole)) {
+      return false;
+    }
+    // All other admin roles can view each other
+    return true;
+  }
+  
+  /// Check if a role should have parish selection (diocese-level roles don't belong to a parish)
+  static bool shouldShowParishSelection(String role) {
+    return !isDioceseLevel(role);
+  }
 }

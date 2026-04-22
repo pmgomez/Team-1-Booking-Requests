@@ -19,6 +19,7 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
   final TextEditingController _offeredByController = TextEditingController();
   final TextEditingController _intentionForController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _preferredTimeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   String _selectedType = 'Thanksgiving'; // Default selection
@@ -37,6 +38,7 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
     _offeredByController.dispose();
     _intentionForController.dispose();
     _dateController.dispose();
+    _preferredTimeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -94,6 +96,7 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
         dateRequested: formatDate(_dateController.text),
         parishId: parishProvider.selectedParish!.id!,
         massSchedule: formatDate(_dateController.text),
+        preferredTime: _preferredTimeController.text.trim().isEmpty ? null : _preferredTimeController.text.trim(),
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       );
 
@@ -216,6 +219,27 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
+                  controller: _preferredTimeController,
+                  decoration: const InputDecoration(
+                    labelText: "Preferred Time *",
+                    hintText: "HH:MM (e.g., 08:00 or 14:30)",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value!.isEmpty ? "Required" : null,
+                  onTap: () async {
+                    FocusScope.of(context).requestFocus(FocusNode());
+                    TimeOfDay? pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (pickedTime != null) {
+                      _preferredTimeController.text =
+                          "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
                   controller: _offeredByController,
                   decoration: const InputDecoration(labelText: "Offered By (Name/Family) *", border: OutlineInputBorder()),
                   validator: (value) => value!.isEmpty ? "Required" : null,
@@ -231,19 +255,26 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
               const SizedBox(height: 20),
               Consumer<MassIntentionProvider>(
                 builder: (context, provider, _) {
-                  return ElevatedButton(
-                    onPressed: provider.isLoading ? null : _submitForm,
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-                    child: provider.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text("Submit Mass Intention"),
+                  return Center(
+                    child: ElevatedButton(
+                      onPressed: provider.isLoading ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 28),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: provider.isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text("Submit Mass Intention", style: TextStyle(fontSize: 16)),
+                    ),
                   );
                 },
               ),

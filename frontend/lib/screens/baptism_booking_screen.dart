@@ -30,10 +30,10 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
   final TextEditingController _preferredTimeController = TextEditingController();
   final TextEditingController _preferredPriestController = TextEditingController();
 
-  // File upload state
-  PlatformFile? _birthCertificateFile;
-  bool _isUploadingFile = false;
-  String? _uploadedFilePath;
+   // File upload state
+   PlatformFile? _birthCertificateFile;
+   bool _isUploadingFile = false;
+   Map<String, dynamic>? _uploadedFileData;
 
   @override
   void initState() {
@@ -72,7 +72,7 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
       if (result != null && result.files.isNotEmpty) {
         setState(() {
           _birthCertificateFile = result.files.first;
-          _uploadedFilePath = null;
+          _uploadedFileData = null;
         });
       }
     } catch (e) {
@@ -119,7 +119,7 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
 
       if (response.success && response.data != null) {
         setState(() {
-          _uploadedFilePath = response.data!['file']['filename'];
+          _uploadedFileData = response.data!['file'];
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -128,13 +128,21 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
         }
       } else {
         if (mounted) {
+          // Show detailed error message
+          final errorMsg = response.errors?.isNotEmpty == true 
+              ? '${response.message}: ${response.errors!.first}'
+              : (response.message ?? 'Upload failed');
+          print('Upload error details: $errorMsg');
+          print('Response status code: ${response.statusCode}');
+          print('Response data: ${response.data}');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.message ?? 'Upload failed')),
+            SnackBar(content: Text(errorMsg)),
           );
         }
       }
     } catch (e) {
       if (mounted) {
+        print('Upload exception: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error uploading file: $e')),
         );
@@ -221,6 +229,12 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
             ? null 
             : _notesController.text.trim(),
         godparents: godparents.isEmpty ? null : godparents,
+        uploadedFile: _uploadedFileData != null ? _uploadedFileData!['filename'] : null,
+        filePath: _uploadedFileData != null ? _uploadedFileData!['path'] : null,
+        fileUrl: _uploadedFileData != null ? _uploadedFileData!['url'] : null,
+        fileSize: _uploadedFileData != null ? _uploadedFileData!['size'] : null,
+        mimeType: _uploadedFileData != null ? _uploadedFileData!['mimetype'] : null,
+        documentType: 'birth_certificate',
       );
 
       if (success && mounted) {
@@ -526,18 +540,18 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
                           ],
                         )
                       : ElevatedButton.icon(
-                          onPressed: _uploadedFilePath == null ? _uploadBirthCertificate : null,
+                          onPressed: _uploadedFileData == null ? _uploadBirthCertificate : null,
                           icon: const Icon(Icons.cloud_upload),
                           label: Text(
-                            _uploadedFilePath != null
+                            _uploadedFileData != null
                                 ? 'Uploaded Successfully'
                                 : 'Upload Birth Certificate',
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _uploadedFilePath != null
+                            backgroundColor: _uploadedFileData != null
                                 ? Colors.green
                                 : null,
-                            foregroundColor: _uploadedFilePath != null
+                            foregroundColor: _uploadedFileData != null
                                 ? Colors.white
                                 : null,
                           ),

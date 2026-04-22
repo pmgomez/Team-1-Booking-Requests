@@ -41,10 +41,10 @@ class _ConfirmationBookingScreenState
   final TextEditingController _notesController =
       TextEditingController();
 
-  // File
-  PlatformFile? _baptismalCertificate;
-  bool _isUploadingFile = false;
-  String? _uploadedFilePath;
+   // File
+   PlatformFile? _baptismalCertificate;
+   bool _isUploadingFile = false;
+   Map<String, dynamic>? _uploadedFileData;
 
   @override
   void initState() {
@@ -92,12 +92,12 @@ class _ConfirmationBookingScreenState
         allowMultiple: false,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _baptismalCertificate = result.files.first;
-          _uploadedFilePath = null;
-        });
-      }
+       if (result != null && result.files.isNotEmpty) {
+         setState(() {
+           _baptismalCertificate = result.files.first;
+           _uploadedFileData = null;
+         });
+       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -140,16 +140,16 @@ class _ConfirmationBookingScreenState
         },
       );
 
-      if (response.success && response.data != null) {
-        setState(() {
-          _uploadedFilePath = response.data!['file']['filename'];
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Baptismal certificate uploaded successfully')),
-          );
-        }
-      } else {
+       if (response.success && response.data != null) {
+         setState(() {
+           _uploadedFileData = response.data!['file'];
+         });
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Baptismal certificate uploaded successfully')),
+           );
+         }
+       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.message ?? 'Upload failed')),
@@ -217,6 +217,12 @@ class _ConfirmationBookingScreenState
         additionalNotes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        uploadedFile: _uploadedFileData != null ? _uploadedFileData!['filename'] : null,
+        filePath: _uploadedFileData != null ? _uploadedFileData!['path'] : null,
+        fileUrl: _uploadedFileData != null ? _uploadedFileData!['url'] : null,
+        fileSize: _uploadedFileData != null ? _uploadedFileData!['size'] : null,
+        mimeType: _uploadedFileData != null ? _uploadedFileData!['mimetype'] : null,
+        documentType: 'baptismal_certificate',
       );
 
       if (success && mounted) {
@@ -474,18 +480,18 @@ class _ConfirmationBookingScreenState
                             ],
                           )
                         : ElevatedButton.icon(
-                            onPressed: _uploadedFilePath == null ? _uploadBaptismalCertificate : null,
+                            onPressed: _uploadedFileData == null ? _uploadBaptismalCertificate : null,
                             icon: const Icon(Icons.cloud_upload),
                             label: Text(
-                              _uploadedFilePath != null
+                              _uploadedFileData != null
                                   ? 'Uploaded Successfully'
                                   : 'Upload Baptismal Certificate',
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _uploadedFilePath != null
+                              backgroundColor: _uploadedFileData != null
                                   ? Colors.green
                                   : null,
-                              foregroundColor: _uploadedFilePath != null
+                              foregroundColor: _uploadedFileData != null
                                   ? Colors.white
                                   : null,
                             ),

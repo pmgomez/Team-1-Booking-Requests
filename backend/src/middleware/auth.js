@@ -31,6 +31,8 @@ const authenticateJWT = async (req, res, next) => {
     req.user = {
       userId: decoded.userId,
       role: decoded.role,
+      email: decoded.email,
+      assignedParishId: decoded.assignedParishId || null,
     };
 
     next();
@@ -49,6 +51,30 @@ const authenticateJWT = async (req, res, next) => {
       });
     }
     return res.status(500).json({ error: 'Authentication failed', details: error.message });
+  }
+};
+
+// Middleware to check if user must change password
+// Should be used after authenticateJWT on routes that require password change
+const requirePasswordChange = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.mustChangePassword) {
+      return res.status(403).json({
+        error: 'Password change required',
+        message: 'You must change your temporary password before continuing.',
+        mustChangePassword: true,
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Password check error:', error);
+    return res.status(500).json({ error: 'Failed to verify password status' });
   }
 };
 
@@ -72,4 +98,4 @@ const authorizeRoles = (...allowedRoles) => {
   };
 };
 
-module.exports = { authenticateJWT, authorizeRoles };
+module.exports = { authenticateJWT, authorizeRoles, requirePasswordChange };

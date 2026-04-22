@@ -5,7 +5,9 @@ class MassIntention {
   final String? donorName;
   final String? dateRequested;
   final int? parishId;
+  final String? parishName;
   final String? massSchedule;
+  final String? preferredTime;
   final String? preferredPriest;
   final String? notes;
   final String? status;
@@ -20,7 +22,9 @@ class MassIntention {
     this.donorName,
     this.dateRequested,
     this.parishId,
+    this.parishName,
     this.massSchedule,
+    this.preferredTime,
     this.preferredPriest,
     this.notes,
     this.status,
@@ -37,7 +41,9 @@ class MassIntention {
       donorName: json['donorName'],
       dateRequested: json['dateRequested'],
       parishId: json['parishId'],
+      parishName: json['parishName'],
       massSchedule: json['massSchedule'],
+      preferredTime: json['preferredTime'],
       preferredPriest: json['preferredPriest'],
       notes: json['notes'],
       status: json['status'] ?? 'pending',
@@ -56,6 +62,7 @@ class MassIntention {
       'dateRequested': dateRequested,
       'parishId': parishId,
       'massSchedule': massSchedule,
+      if (preferredTime != null) 'preferredTime': preferredTime,
       if (preferredPriest != null) 'preferredPriest': preferredPriest,
       if (notes != null) 'notes': notes,
       if (status != null) 'status': status,
@@ -71,6 +78,7 @@ class MassIntention {
     String? dateRequested,
     int? parishId,
     String? massSchedule,
+    String? preferredTime,
     String? preferredPriest,
     String? notes,
     String? status,
@@ -86,6 +94,7 @@ class MassIntention {
       dateRequested: dateRequested ?? this.dateRequested,
       parishId: parishId ?? this.parishId,
       massSchedule: massSchedule ?? this.massSchedule,
+      preferredTime: preferredTime ?? this.preferredTime,
       preferredPriest: preferredPriest ?? this.preferredPriest,
       notes: notes ?? this.notes,
       status: status ?? this.status,

@@ -16,10 +16,11 @@ class AuthService {
    */
   generateTokens(user) {
     const accessToken = jwt.sign(
-      { 
-        userId: user.id, 
+      {
+        userId: user.id,
         role: user.role,
         email: user.email,
+        assignedParishId: user.assignedParishId || null,
       },
       this.jwtSecret,
       { expiresIn: this.jwtExpiry }
@@ -78,6 +79,12 @@ class AuthService {
       throw new Error('Email already registered');
     }
 
+    // For diocese-level roles, set parish fields to null
+    // since diocese personnel don't belong to a specific parish
+    const isDioceseLevel = ['diocese_staff', 'diocese_admin'].includes(role);
+    const finalPreferredParishId = isDioceseLevel ? null : preferredParishId;
+    const finalAssignedParishId = isDioceseLevel ? null : undefined;
+
     // Create new user
     const user = await User.create({
       email,
@@ -86,7 +93,8 @@ class AuthService {
       lastName,
       phone,
       role,
-      preferredParishId,
+      preferredParishId: finalPreferredParishId,
+      assignedParishId: finalAssignedParishId,
     });
 
     // Generate tokens
@@ -127,6 +135,7 @@ class AuthService {
     
     return {
       user: user.toSafeObject(),
+      mustChangePassword: user.mustChangePassword || false,
       ...tokens,
     };
   }

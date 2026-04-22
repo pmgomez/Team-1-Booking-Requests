@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/parish_provider.dart';
 import '../utils/role_helpers.dart';
 
 // Home Screen
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -57,6 +59,16 @@ class HomeScreen extends StatelessWidget {
     final isAdmin = Roles.isAdmin(userRole);
     final isDioceseLevel = Roles.isDioceseLevel(userRole);
 
+    // Show password change modal if required and user is not a parishioner
+    // (parishioners who signed up don't need to change password)
+    if (authProvider.mustChangePassword &&
+        userRole != Roles.parishioner &&
+        context.mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showPasswordChangeModal(context);
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Diocese Booking System"),
@@ -107,6 +119,31 @@ class HomeScreen extends StatelessWidget {
                     ),
                     maxLines: 2,
                   ),
+                  // Show parish info for non-diocese users
+                  if (authProvider.currentUser?.effectiveParishId != null && !isDioceseLevel)
+                    Consumer<ParishProvider>(
+                      builder: (context, parishProvider, _) {
+                        final parish = parishProvider.parishes
+                            .where((p) => p.id == authProvider.currentUser?.effectiveParishId)
+                            .firstOrNull;
+                        if (parish != null) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Parish: ${parish.name}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                 ],
               ),
             ),
@@ -154,7 +191,7 @@ class HomeScreen extends StatelessWidget {
                     Navigator.pushNamed(context, '/admin-parishes');
                   },
                 ),
-              if (isDioceseLevel)
+              if (isDioceseLevel || isAdmin)
                 ListTile(
                   leading: const Icon(Icons.people),
                   title: const Text('Manage Users'),
@@ -173,6 +210,14 @@ class HomeScreen extends StatelessWidget {
               ),
             ],
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.lock),
+              title: const Text('Change Password'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/profile');
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
@@ -200,13 +245,15 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             isAdmin
-                ? 'Manage sacraments, bookings, and parish operations across ${isDioceseLevel ? 'all parishes' : 'your parish'}.\nSelect a service below to begin.'
-                : 'Book sacraments and mass intentions across all parishes in the diocese.\nSelect a service below to begin your booking request.',
+                ? 'Manage sacraments, bookings, and parish operations across ${isDioceseLevel ? 'all parishes' : 'your parish'}.'
+                  '\nSelect a service below to begin.'
+                : 'Book sacraments and mass intentions across all parishes in the diocese.'
+                  '\nSelect a service below to begin your booking request.',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(height: 20),
-          
+
           // Admin Quick Actions
           if (isAdmin) ...[
             Card(
@@ -262,6 +309,18 @@ class HomeScreen extends StatelessWidget {
                               foregroundColor: Colors.white,
                             ),
                           ),
+                        if (isDioceseLevel || isAdmin)
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/admin-users');
+                            },
+                            icon: const Icon(Icons.people, size: 20),
+                            label: const Text('Users'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade700,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -270,7 +329,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
           ],
-          
+
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -333,6 +392,35 @@ class HomeScreen extends StatelessWidget {
                 ),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPasswordChangeModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Password Change Required'),
+        content: const Text(
+          'You must change your password before continuing. Please update your password now.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/profile');
+            },
+            child: const Text('Change Password'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Later'),
           ),
         ],
       ),

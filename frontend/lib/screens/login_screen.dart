@@ -38,7 +38,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (success) {
-        // Navigate to home screen
+        // Navigate to home screen regardless of mustChangePassword status
+        // The HomeScreen will show a modal reminder if password change is required
         Navigator.of(context).pushReplacementNamed('/home');
       }
     }
@@ -50,7 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
     bool success = await authProvider.signInWithGoogle();
 
     if (success) {
-      // Navigate to home screen
+      // Navigate to home screen regardless of mustChangePassword status
+      // The HomeScreen will show a modal reminder if password change is required
       Navigator.of(context).pushReplacementNamed('/home');
     }
   }
@@ -193,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // Navigate to forgot password screen
+                    Navigator.of(context).pushNamed('/forgot-password');
                   },
                   child: const Text('Forgot Password?'),
                 ),

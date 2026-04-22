@@ -158,6 +158,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   if (parishProvider.isLoading) {
                     return const Center(child: CircularProgressIndicator());
                   }
+                  
+                  // For public registration (parishioner role), always show parish selection
+                  // Diocese-level roles would have this hidden (handled by role check)
+                  final showParishSelection = true; // Public registration is always parishioner
+                  
+                  if (!showParishSelection) {
+                    return const SizedBox.shrink();
+                  }
+                  
                   return DropdownButtonFormField<int>(
                     value: _selectedParishId,
                     decoration: const InputDecoration(

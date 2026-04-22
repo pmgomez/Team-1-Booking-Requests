@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/parish_provider.dart';
 import '../services/admin_service.dart';
 import '../utils/role_helpers.dart';
 
 class AdminBookingsScreen extends StatefulWidget {
-  const AdminBookingsScreen({super.key});
+  final String? initialStatus;
+  final String? initialParishId;
+  final String? initialDateFilter;
+
+  const AdminBookingsScreen({
+    super.key,
+    this.initialStatus,
+    this.initialParishId,
+    this.initialDateFilter,
+  });
 
   @override
   State<AdminBookingsScreen> createState() => _AdminBookingsScreenState();
@@ -17,6 +27,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
   List<dynamic> _bookings = [];
   String _selectedStatus = 'all';
   String _selectedType = 'all';
+  String? _selectedParishId;
 
   final List<Map<String, String>> _statusOptions = [
     {'value': 'all', 'label': 'All Statuses'},
@@ -40,7 +51,28 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
   @override
   void initState() {
     super.initState();
+    // Set initial filters from navigation arguments
+    if (widget.initialStatus != null) {
+      _selectedStatus = widget.initialStatus!;
+    }
+    if (widget.initialParishId != null) {
+      _selectedParishId = widget.initialParishId;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ParishProvider>(context, listen: false).loadAllParishes();
+    });
     _loadBookings();
+  }
+
+  /// Calculate date range for "this month" filter
+  Map<String, String>? _getThisMonthDateRange() {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    return {
+      'startDate': firstDayOfMonth.toIso8601String(),
+      'endDate': lastDayOfMonth.toIso8601String(),
+    };
   }
 
   Future<void> _loadBookings() async {
@@ -51,10 +83,22 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
 
     setState(() => _isLoading = true);
 
+    // Handle "this month" date filter
+    String? startDate;
+    String? endDate;
+    if (widget.initialDateFilter == 'this_month') {
+      final dateRange = _getThisMonthDateRange();
+      startDate = dateRange?['startDate'];
+      endDate = dateRange?['endDate'];
+    }
+
     final response = await _adminService.getAllBookings(
       token,
       sacramentType: _selectedType == 'all' ? null : _selectedType,
       status: _selectedStatus == 'all' ? null : _selectedStatus,
+      parishId: _selectedParishId,
+      startDate: startDate,
+      endDate: endDate,
     );
 
     if (response.success && response.data != null) {
@@ -72,11 +116,96 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
     }
   }
 
+  Future<void> _deleteBooking(String bookingId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Booking'),
+        content: const Text('Are you sure you want to delete this booking? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) return;
+
+    final response = await _adminService.deleteBooking(token, bookingId);
+
+    if (mounted) {
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking deleted successfully')),
+        );
+        _loadBookings();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response.message ?? 'Failed to delete booking')),
+        );
+      }
+    }
+  }
+
   Future<void> _updateBookingStatus(String bookingId, String status) async {
+    // Don't proceed if bookingId is empty
+    if (bookingId.isEmpty) return;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
 
     if (token == null) return;
+
+    // Find the booking from the list to get its type
+    final booking = _bookings.firstWhere(
+          (b) => b['id'].toString() == bookingId,
+      orElse: () => {},
+    );
+    
+    // Return if booking not found
+    if (booking.isEmpty) return;
+    
+    final bookingType = booking['bookingType'] ?? booking['sacramentType'];
+    if (bookingType == 'baptism') {
+      // Navigate to baptism detail screen for approval/completion actions
+      final id = booking['id'] is String
+          ? int.tryParse(booking['id'])
+          : booking['id'] is int
+              ? booking['id']
+              : null;
+      
+      Navigator.pushNamed(
+        context,
+        '/baptism-detail',
+        arguments: {'id': id, 'fromStatusButton': true},
+      );
+      return;
+    } else if (bookingType == 'mass_intention') {
+      // Navigate to mass intention detail screen for approval/completion actions
+      final id = booking['id'] is String
+          ? int.tryParse(booking['id'])
+          : booking['id'] is int
+              ? booking['id']
+              : null;
+      
+      Navigator.pushNamed(
+        context,
+        '/mass-intention-detail',
+        arguments: {'id': id, 'fromStatusButton': true},
+      );
+      return;
+    }
 
     final response = await _adminService.updateBookingStatus(
       token,
@@ -254,48 +383,104 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.grey[100],
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedStatus,
+                        decoration: const InputDecoration(
+                          labelText: 'Status',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: _statusOptions
+                            .map((option) => DropdownMenuItem(
+                                  value: option['value'],
+                                  child: Text(option['label']!),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedStatus = value ?? 'all');
+                          _loadBookings();
+                        },
+                      ),
                     ),
-                    items: _statusOptions
-                        .map((option) => DropdownMenuItem(
-                              value: option['value'],
-                              child: Text(option['label']!),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedStatus = value ?? 'all');
-                      _loadBookings();
-                    },
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedType,
+                        decoration: const InputDecoration(
+                          labelText: 'Type',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: _typeOptions
+                            .map((option) => DropdownMenuItem(
+                                  value: option['value'],
+                                  child: Text(option['label']!),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedType = value ?? 'all');
+                          _loadBookings();
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedType,
-                    decoration: const InputDecoration(
-                      labelText: 'Type',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: _typeOptions
-                        .map((option) => DropdownMenuItem(
-                              value: option['value'],
-                              child: Text(option['label']!),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedType = value ?? 'all');
-                      _loadBookings();
-                    },
-                  ),
+                const SizedBox(height: 12),
+                Consumer<ParishProvider>(
+                  builder: (context, parishProvider, _) {
+                    if (parishProvider.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    
+                    // Filter parishes based on current user's role
+                    List<dynamic> availableParishes = parishProvider.parishes;
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final currentUser = authProvider.currentUser;
+                    
+                    // If current user is parish-level, only show their assigned parish
+                    if (currentUser != null && 
+                        Roles.isParishLevel(currentUser.role) && 
+                        currentUser.effectiveParishId != null) {
+                      final currentUserParish = parishProvider.parishes
+                          .where((parish) => parish.id == currentUser.effectiveParishId)
+                          .firstOrNull;
+                      
+                      if (currentUserParish != null) {
+                        availableParishes = [currentUserParish];
+                        // Auto-select the parish if not already selected
+                        if (_selectedParishId == null) {
+                          _selectedParishId = currentUserParish.id.toString();
+                        }
+                      }
+                    }
+                    
+                    return DropdownButtonFormField<String>(
+                      value: _selectedParishId,
+                      decoration: const InputDecoration(
+                        labelText: 'Parish',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        if (!Roles.isParishLevel(currentUser?.role ?? ''))
+                          const DropdownMenuItem(value: null, child: Text('All Parishes')),
+                        ...availableParishes
+                            .map((parish) => DropdownMenuItem<String>(
+                                  value: parish.id.toString(),
+                                  child: Text(parish.name),
+                                )),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedParishId = value);
+                        _loadBookings();
+                      },
+                    );
+                  },
                 ),
               ],
             ),
@@ -314,53 +499,121 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                           itemCount: _bookings.length,
                           itemBuilder: (context, index) {
                             final booking = _bookings[index];
+                            final bookingType = booking['bookingType'] ?? booking['sacramentType'];
+                            
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                onTap: () => _showBookingDetails(booking),
-                                leading: CircleAvatar(
-                                  backgroundColor: _getStatusColor(
-                                    booking['status'] ?? 'pending',
-                                  ),
-                                  child: const Icon(
-                                    Icons.calendar_today,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                title: Text(
-                                  booking['childFullName'] ??
-                                      booking['deceasedFullName'] ??
-                                      booking['coupleNames'] ??
-                                      booking['fullName'] ??
-                                      'Booking #${booking['id']}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      (booking['bookingType'] ?? booking['sacramentType'] ?? 'booking')
-                                          .toString()
-                                          .replaceAll('_', ' ')
-                                          .toUpperCase(),
-                                    ),
-                                    Text(
-                                      booking['preferredDate']?.toString().substring(0, 10) ??
-                                          'No date set',
-                                    ),
-                                  ],
-                                ),
-                                trailing: Chip(
-                                  label: Text(
-                                    booking['status']?.toString().toUpperCase() ?? 'PENDING',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  backgroundColor: _getStatusColor(
-                                    booking['status'] ?? 'pending',
+                              child: InkWell(
+                                onTap: () {
+                                  // Navigate to detail screen for editing or view
+                                  if (bookingType == 'baptism') {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/baptism-detail',
+                                      arguments: {
+                                        'id': booking['id'] is String
+                                            ? int.tryParse(booking['id'])
+                                            : booking['id'] is int
+                                                ? booking['id']
+                                                : null,
+                                      },
+                                    );
+                                  } else if (bookingType == 'mass_intention') {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/mass-intention-detail',
+                                      arguments: {
+                                        'id': booking['id'] is String
+                                            ? int.tryParse(booking['id'])
+                                            : booking['id'] is int
+                                                ? booking['id']
+                                                : null,
+                                      },
+                                    );
+                                  } else {
+                                    // Show generic details for other types
+                                    _showBookingDetails(booking);
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: _getStatusColor(
+                                          booking['status'] ?? 'pending',
+                                        ),
+                                        radius: 24,
+                                        child: const Icon(
+                                          Icons.calendar_today,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              booking['childFullName'] ??
+                                                  booking['deceasedFullName'] ??
+                                                  booking['coupleNames'] ??
+                                                  booking['fullName'] ??
+                                                  'Booking #${booking['id']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              (bookingType ?? 'booking')
+                                                  .toString()
+                                                  .replaceAll('_', ' ')
+                                                  .toUpperCase(),
+                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              bookingType == 'mass_intention'
+                                                  ? (booking['massSchedule']?.toString().substring(0, 10) ??
+                                                      'No date set')
+                                                  : (booking['preferredDate']?.toString().substring(0, 10) ??
+                                                      'No date set'),
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      MaterialButton(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        color: _getStatusColor(booking['status'] ?? 'pending'),
+                                        textColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          booking['status']?.toString().toUpperCase() ?? 'PENDING',
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                        onPressed: () {
+                                          // Status button tap - only for approved/declined/completed status updates
+                                          final bookingId = booking['id'] is String
+                                              ? int.tryParse(booking['id'].toString())
+                                              : booking['id'] is int
+                                                  ? booking['id']
+                                                  : null;
+                                          _updateBookingStatus(bookingId?.toString() ?? '', booking['status']?.toLowerCase() ?? '');
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                        tooltip: 'Delete booking',
+                                        onPressed: () => _deleteBooking(booking['id'].toString()),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

@@ -26,6 +26,14 @@ exports.getAllParishes = async (req, res, next) => {
       message: 'Parishes retrieved successfully',
     });
   } catch (error) {
+    // Log connection errors for debugging
+    if (error.name === 'SequelizeConnectionError' || error.original) {
+      console.error('Database connection error in getAllParishes:', {
+        message: error.message,
+        original: error.original?.message,
+        code: error.original?.code,
+      });
+    }
     next(error);
   }
 };

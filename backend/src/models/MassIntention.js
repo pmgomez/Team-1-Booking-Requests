@@ -35,6 +35,10 @@ const MassIntention = sequelize.define('MassIntention', {
     type: DataTypes.DATE,
     allowNull: false,
   },
+  preferredTime: {
+    type: DataTypes.STRING(10),
+    allowNull: true,
+  },
   preferredPriest: {
     type: DataTypes.STRING(255),
     allowNull: true,

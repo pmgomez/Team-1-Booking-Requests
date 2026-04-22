@@ -21,6 +21,7 @@ const apiDocsRoutes = require('./routes/apiDocs');
 
 // New sacrament booking routes
 const baptismRoutes = require('./routes/baptisms');
+const baptismDocumentRoutes = require('./routes/baptismDocuments');
 const sacramentRoutes = require('./routes/sacraments');
 const parishSettingsRoutes = require('./routes/parishSettings');
 const sacramentalRecordsRoutes = require('./routes/sacramentalRecords');
@@ -34,7 +35,7 @@ const app = express();
 
 // Security middleware
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
 // CORS configuration for Flutter app
@@ -121,6 +122,7 @@ app.use('/api/admin', adminRoutes);
 
 // New sacrament booking routes
 app.use('/api/baptisms', baptismRoutes);
+app.use('/api/baptism-documents', baptismDocumentRoutes);
 app.use('/api/sacraments', sacramentRoutes);
 app.use('/api/parish-settings', parishSettingsRoutes);
 app.use('/api/sacramental-records', sacramentalRecordsRoutes);

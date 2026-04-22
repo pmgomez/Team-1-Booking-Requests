@@ -9,7 +9,9 @@ class MassIntentionDTO {
     intentionDetails,
     donorName,
     parishId,
+    parishName,
     massSchedule,
+    preferredTime,
     preferredPriest,
     notes,
     dateRequested,
@@ -23,7 +25,9 @@ class MassIntentionDTO {
     this.intentionDetails = intentionDetails;
     this.donorName = donorName;
     this.parishId = parishId;
+    this.parishName = parishName;
     this.massSchedule = massSchedule;
+    this.preferredTime = preferredTime;
     this.preferredPriest = preferredPriest;
     this.notes = notes;
     this.dateRequested = dateRequested;
@@ -43,6 +47,7 @@ class MassIntentionDTO {
       donorName: body.donorName,
       parishId: parseInt(body.parishId),
       massSchedule: new Date(body.massSchedule),
+      preferredTime: body.preferredTime,
       preferredPriest: body.preferredPriest,
       notes: body.notes,
     });
@@ -59,7 +64,9 @@ class MassIntentionDTO {
       intentionDetails: entity.intentionDetails,
       donorName: entity.donorName,
       parishId: entity.parishId,
+      parishName: entity.parish?.name, // from included association
       massSchedule: entity.massSchedule,
+      preferredTime: entity.preferredTime,
       preferredPriest: entity.preferredPriest,
       notes: entity.notes,
       dateRequested: entity.dateRequested,
@@ -132,7 +139,9 @@ class MassIntentionDTO {
       intentionDetails: this.intentionDetails,
       donorName: this.donorName,
       parishId: this.parishId,
+      parishName: this.parishName,
       massSchedule: this.massSchedule,
+      preferredTime: this.preferredTime,
       preferredPriest: this.preferredPriest,
       notes: this.notes,
       dateRequested: this.dateRequested,
