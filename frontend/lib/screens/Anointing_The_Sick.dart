@@ -52,6 +52,14 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
           }
         });
       }
+
+      // Set default contact email and person to current user's info
+      if (authProvider.currentUser?.email != null) {
+        _contactEmailController.text = authProvider.currentUser!.email;
+      }
+      if (authProvider.currentUser?.fullName != null) {
+        _contactPersonController.text = authProvider.currentUser!.fullName;
+      }
     });
   }
 

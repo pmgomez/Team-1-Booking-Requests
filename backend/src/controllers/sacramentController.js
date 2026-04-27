@@ -94,7 +94,6 @@ const checkBlackoutDates = async (parishId, serviceType, date) => {
     where: {
       parishId,
       date,
-      isActive: true,
       [Op.or]: [{ serviceType: null }, { serviceType }],
     },
   });
@@ -164,6 +163,7 @@ exports.createSacramentBooking = (sacramentType) => async (req, res) => {
       fileSize,
       mimeType,
       documentType = 'other',
+      documents, // Array of document objects for multiple uploads
       ...bookingData
     } = req.body;
 
@@ -219,21 +219,44 @@ exports.createSacramentBooking = (sacramentType) => async (req, res) => {
       await Godparent.bulkCreate(godparentRecords);
     }
 
-    // Link uploaded file to booking if provided
-    if (uploadedFile && filePath && fileUrl && fileSize && mimeType) {
+    // Link uploaded documents to booking
+    // Handle both single document (legacy) and multiple documents array
+    const documentEntries = [];
+
+    // Check if documents array is provided (new format)
+    if (Array.isArray(documents) && documents.length > 0) {
+      documentEntries.push(...documents);
+    } 
+    // Otherwise, fallback to single document fields (legacy)
+    else if (uploadedFile && filePath && fileUrl && fileSize && mimeType) {
+      documentEntries.push({
+        uploadedFile,
+        filePath,
+        fileUrl,
+        fileSize,
+        mimeType,
+        documentType: documentType,
+      });
+    }
+
+    // Create all document records
+    for (const doc of documentEntries) {
       await BookingDocument.create({
         bookingType: sacramentType,
         bookingId: booking.id,
-        documentType: documentType,
-        fileName: uploadedFile,
-        filePath,
-        fileUrl,
-        fileSize: parseInt(fileSize),
-        mimeType,
+        documentType: doc.documentType || 'other',
+        fileName: doc.uploadedFile,
+        filePath: doc.filePath,
+        fileUrl: doc.fileUrl,
+        fileSize: parseInt(doc.fileSize),
+        mimeType: doc.mimeType,
         uploadedBy: req.user.userId,
       });
-      console.log(`Created booking document for file ${uploadedFile} linked to ${sacramentType} booking ${booking.id}`);
-    } else if (uploadedFile) {
+      console.log(`Created booking document for file ${doc.uploadedFile} linked to ${sacramentType} booking ${booking.id}`);
+    }
+
+    // Log warnings for incomplete single document data
+    if (uploadedFile && !(filePath && fileUrl && fileSize && mimeType)) {
       console.log(`File ${uploadedFile} uploaded but missing file details in request body`);
     }
 
@@ -268,16 +291,19 @@ exports.createSacramentBooking = (sacramentType) => async (req, res) => {
       ? 'Preferred priest noted. Subject to availability. Parish will confirm.'
       : undefined;
 
-    res.status(201).json({
+    // Get booking data as plain object, excluding meta fields
+    const bookingRecord = booking.get({ plain: true });
+    // Add the note field
+    bookingRecord.note = responseNote;
+
+    // Log the response for debugging
+    const responseBody = {
       message: `${config.serviceName} booking request submitted successfully`,
-      booking: {
-        id: booking.id,
-        preferredDate: booking.preferredDate,
-        preferredTimeSlot: booking.preferredTimeSlot,
-        status: booking.status,
-        note: responseNote,
-      },
-    });
+      booking: bookingRecord,
+    };
+    console.log('Funeral Mass Booking created. Response:', JSON.stringify(responseBody, null, 2));
+
+    res.status(201).json(responseBody);
   } catch (error) {
     console.error(`Error creating ${sacramentType} booking:`, error);
     res.status(500).json({ error: `Failed to create ${sacramentType} booking` });
@@ -446,8 +472,8 @@ exports.approveSacramentBooking = (sacramentType) => async (req, res) => {
     const { id } = req.params;
     const { status, adminNotes } = req.body;
 
-    if (!['approved', 'declined'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be "approved" or "declined"' });
+    if (!['approved', 'declined', 'completed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be "approved", "declined", or "completed"' });
     }
 
     const booking = await config.model.findByPk(id);

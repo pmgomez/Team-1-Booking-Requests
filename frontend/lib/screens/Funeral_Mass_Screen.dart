@@ -53,6 +53,14 @@ class _FuneralMassScreenState extends State<FuneralMassScreen> {
           }
         });
       }
+
+      // Set default contact email and person to current user's info
+      if (authProvider.currentUser?.email != null) {
+        _emailController.text = authProvider.currentUser!.email;
+      }
+      if (authProvider.currentUser?.fullName != null) {
+        _contactPersonController.text = authProvider.currentUser!.fullName;
+      }
     });
   }
 

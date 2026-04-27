@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import '../models/funeral_mass_booking.dart';
 import '../models/api_response.dart';
 import '../config/api_config.dart';
@@ -161,6 +163,149 @@ class FuneralMassService {
       return ApiResponse<FuneralMassBooking>(
         success: false,
         message: 'Network error updating funeral mass status',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Get funeral mass booking by ID
+  Future<ApiResponse<FuneralMassBooking>> getFuneralMassBookingById({
+    required String token,
+    required int id,
+  }) async {
+    try {
+      final response = await ApiConfig.getWithAuth(
+        '${ApiConfig.funeralMassEndpoint}/$id',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = FuneralMassBooking.fromJson(data['booking']);
+        return ApiResponse<FuneralMassBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<FuneralMassBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to fetch funeral mass booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<FuneralMassBooking>(
+        success: false,
+        message: 'Network error fetching funeral mass booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Update funeral mass booking (full fields - admin)
+  Future<ApiResponse<FuneralMassBooking>> updateFuneralMassBooking({
+    required String token,
+    required int id,
+    String? deceasedFullName,
+    String? dateOfDeath,
+    String? representativeName,
+    String? contactEmail,
+    String? contactPhone,
+    String? wakeStartDate,
+    String? wakeEndDate,
+    String? wakeLocation,
+    String? preferredDate,
+    String? preferredTimeSlot,
+    String? preferredPriest,
+    String? additionalNotes,
+  }) async {
+    try {
+      final requestBody = <String, dynamic>{
+        if (deceasedFullName != null) 'deceasedFullName': deceasedFullName,
+        if (dateOfDeath != null) 'dateOfDeath': dateOfDeath,
+        if (representativeName != null) 'representativeName': representativeName,
+        if (contactEmail != null) 'contactEmail': contactEmail,
+        if (contactPhone != null) 'contactPhone': contactPhone,
+        if (wakeStartDate != null) 'wakeStartDate': wakeStartDate,
+        if (wakeEndDate != null) 'wakeEndDate': wakeEndDate,
+        if (wakeLocation != null) 'wakeLocation': wakeLocation,
+        if (preferredDate != null) 'preferredDate': preferredDate,
+        if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
+        if (preferredPriest != null) 'preferredPriest': preferredPriest,
+        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      };
+
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.funeralMassEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = FuneralMassBooking.fromJson(data['booking']);
+        return ApiResponse<FuneralMassBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<FuneralMassBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to update funeral mass booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<FuneralMassBooking>(
+        success: false,
+        message: 'Network error updating funeral mass booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Attach document to funeral mass booking
+  Future<ApiResponse<Map<String, dynamic>>> attachDocumentToBooking({
+    required int bookingId,
+    required String token,
+    required String filePath,
+    String? documentType,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.funeralMassEndpoint}/$bookingId/document');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('document', filePath));
+      if (documentType != null) {
+        request.fields['documentType'] = documentType;
+      }
+      request.headers.addAll(ApiConfig.getAuthHeaders(token));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data['document'],
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to attach document',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error attaching document',
         errors: [e.toString()],
       );
     }

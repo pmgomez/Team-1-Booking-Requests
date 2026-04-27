@@ -57,6 +57,42 @@ class ReconciliationService {
     }
   }
 
+  Future<ApiResponse<ReconciliationBooking>> getReconciliationById({
+    required String token,
+    required int id,
+  }) async {
+    try {
+      final response = await ApiConfig.getWithAuth(
+        '${ApiConfig.reconciliationsEndpoint}/$id',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = ReconciliationBooking.fromJson(data['booking']);
+
+        return ApiResponse<ReconciliationBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<ReconciliationBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to fetch reconciliation booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<ReconciliationBooking>(
+        success: false,
+        message: 'Network error fetching reconciliation booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
   Future<ApiResponse<ReconciliationBooking>> createReconciliationBooking({
     required String token,
     required int parishId,
@@ -149,6 +185,58 @@ class ReconciliationService {
       return ApiResponse<ReconciliationBooking>(
         success: false,
         message: 'Network error updating reconciliation status',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<ReconciliationBooking>> updateReconciliationBooking({
+    required String token,
+    required int id,
+    required String penitentName,
+    required String contactEmail,
+    required String contactPhone,
+    required String preferredDate,
+    required String preferredTimeSlot,
+    String? additionalNotes,
+  }) async {
+    try {
+      final requestBody = {
+        'penitentName': penitentName,
+        'contactEmail': contactEmail,
+        'contactPhone': contactPhone,
+        'preferredDate': preferredDate,
+        'preferredTimeSlot': preferredTimeSlot,
+        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      };
+
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.reconciliationsEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = ReconciliationBooking.fromJson(data['booking']);
+
+        return ApiResponse<ReconciliationBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<ReconciliationBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to update reconciliation booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<ReconciliationBooking>(
+        success: false,
+        message: 'Network error updating reconciliation booking',
         errors: [e.toString()],
       );
     }

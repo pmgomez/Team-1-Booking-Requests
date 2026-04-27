@@ -1,6 +1,9 @@
+import 'document.dart';
+
 class ConfirmationBooking {
   final int? id;
   final int parishId;
+  final String? parishName;
   final int userId;
   final String? confirmandName;
   final String? fatherName;
@@ -17,10 +20,12 @@ class ConfirmationBooking {
   final String? approvedAt;
   final String? createdAt;
   final String? updatedAt;
+  final List<Document>? documents;
 
   ConfirmationBooking({
     this.id,
     required this.parishId,
+    this.parishName,
     required this.userId,
     this.confirmandName,
     this.fatherName,
@@ -37,12 +42,14 @@ class ConfirmationBooking {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.documents,
   });
 
   factory ConfirmationBooking.fromJson(Map<String, dynamic> json) {
     return ConfirmationBooking(
       id: json['id'],
       parishId: json['parishId'],
+      parishName: json['parish']?['name'],
       userId: json['userId'],
       confirmandName: json['confirmandName'],
       fatherName: json['fatherName'],
@@ -59,6 +66,9 @@ class ConfirmationBooking {
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      documents: json['documents'] != null
+          ? (json['documents'] as List).map((doc) => Document.fromJson(doc)).toList()
+          : null,
     );
   }
 
@@ -78,6 +88,7 @@ class ConfirmationBooking {
       if (additionalNotes != null) 'additionalNotes': additionalNotes,
       if (status != null) 'status': status,
       if (adminNotes != null) 'adminNotes': adminNotes,
+      if (documents != null) 'documents': documents!.map((doc) => doc.toJson()).toList(),
     };
   }
 
@@ -100,6 +111,7 @@ class ConfirmationBooking {
     String? approvedAt,
     String? createdAt,
     String? updatedAt,
+    List<Document>? documents,
   }) {
     return ConfirmationBooking(
       id: id ?? this.id,
@@ -120,6 +132,7 @@ class ConfirmationBooking {
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 }

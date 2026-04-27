@@ -14,6 +14,7 @@ class ReconciliationBooking {
   final String? approvedAt;
   final String? createdAt;
   final String? updatedAt;
+  final String? parishName;
 
   ReconciliationBooking({
     this.id,
@@ -31,6 +32,7 @@ class ReconciliationBooking {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.parishName,
   });
 
   factory ReconciliationBooking.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,7 @@ class ReconciliationBooking {
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      parishName: json['parish']?['name'],
     );
   }
 

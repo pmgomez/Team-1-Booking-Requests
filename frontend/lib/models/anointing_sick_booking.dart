@@ -1,6 +1,9 @@
+import 'document.dart';
+
 class AnointingSickBooking {
   final int? id;
   final int parishId;
+  final String? parishName;
   final int userId;
   final String? sickPersonName;
   final String? contactPersonName;
@@ -18,10 +21,12 @@ class AnointingSickBooking {
   final String? approvedAt;
   final String? createdAt;
   final String? updatedAt;
+  final List<Document>? documents;
 
   AnointingSickBooking({
     this.id,
     required this.parishId,
+    this.parishName,
     required this.userId,
     this.sickPersonName,
     this.contactPersonName,
@@ -39,12 +44,14 @@ class AnointingSickBooking {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.documents,
   });
 
   factory AnointingSickBooking.fromJson(Map<String, dynamic> json) {
     return AnointingSickBooking(
       id: json['id'],
       parishId: json['parishId'],
+      parishName: json['parish']?['name'],
       userId: json['userId'],
       sickPersonName: json['sickPersonName'],
       contactPersonName: json['contactPersonName'],
@@ -62,6 +69,9 @@ class AnointingSickBooking {
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      documents: json['documents'] != null
+          ? (json['documents'] as List).map((doc) => Document.fromJson(doc)).toList()
+          : null,
     );
   }
 
@@ -88,6 +98,7 @@ class AnointingSickBooking {
   AnointingSickBooking copyWith({
     int? id,
     int? parishId,
+    String? parishName,
     int? userId,
     String? sickPersonName,
     String? contactPersonName,
@@ -105,10 +116,12 @@ class AnointingSickBooking {
     String? approvedAt,
     String? createdAt,
     String? updatedAt,
+    List<Document>? documents,
   }) {
     return AnointingSickBooking(
       id: id ?? this.id,
       parishId: parishId ?? this.parishId,
+      parishName: parishName ?? this.parishName,
       userId: userId ?? this.userId,
       sickPersonName: sickPersonName ?? this.sickPersonName,
       contactPersonName: contactPersonName ?? this.contactPersonName,
@@ -126,6 +139,7 @@ class AnointingSickBooking {
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 }

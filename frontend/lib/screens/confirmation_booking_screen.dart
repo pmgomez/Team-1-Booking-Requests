@@ -42,9 +42,13 @@ class _ConfirmationBookingScreenState
       TextEditingController();
 
    // File
-   PlatformFile? _baptismalCertificate;
-   bool _isUploadingFile = false;
-   Map<String, dynamic>? _uploadedFileData;
+    PlatformFile? _baptismalCertificate;
+    bool _isUploadingBaptismal = false;
+    Map<String, dynamic>? _uploadedBaptismalData;
+
+    PlatformFile? _birthCertificate;
+    bool _isUploadingBirth = false;
+    Map<String, dynamic>? _uploadedBirthData;
 
   @override
   void initState() {
@@ -93,11 +97,11 @@ class _ConfirmationBookingScreenState
       );
 
        if (result != null && result.files.isNotEmpty) {
-         setState(() {
-           _baptismalCertificate = result.files.first;
-           _uploadedFileData = null;
-         });
-       }
+          setState(() {
+            _baptismalCertificate = result.files.first;
+            _uploadedBaptismalData = null;
+          });
+        }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +130,7 @@ class _ConfirmationBookingScreenState
     }
 
     setState(() {
-      _isUploadingFile = true;
+      _isUploadingBaptismal = true;
     });
 
     try {
@@ -141,15 +145,103 @@ class _ConfirmationBookingScreenState
       );
 
        if (response.success && response.data != null) {
-         setState(() {
-           _uploadedFileData = response.data!['file'];
-         });
+          setState(() {
+            _uploadedBaptismalData = response.data!['file'];
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Baptismal certificate uploaded successfully')),
+            );
+          }
+        } else {
          if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Baptismal certificate uploaded successfully')),
+             SnackBar(content: Text(response.message ?? 'Upload failed')),
            );
          }
-       } else {
+       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingBaptismal = false;
+        });
+      }
+    }
+  }
+
+  // Birth certificate pick and upload
+  Future<void> _pickBirthCertificate() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _birthCertificate = result.files.first;
+          _uploadedBirthData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadBirthCertificate() async {
+    if (_birthCertificate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isUploadingBirth = true;
+    });
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _birthCertificate!.path!,
+        token: token,
+        category: 'confirmation',
+        additionalFields: {
+          'documentType': 'birth_certificate',
+        },
+      );
+
+      if (response.success && response.data != null) {
+        setState(() {
+          _uploadedBirthData = response.data!['file'];
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Birth certificate uploaded successfully')),
+          );
+        }
+      } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.message ?? 'Upload failed')),
@@ -165,7 +257,7 @@ class _ConfirmationBookingScreenState
     } finally {
       if (mounted) {
         setState(() {
-          _isUploadingFile = false;
+          _isUploadingBirth = false;
         });
       }
     }
@@ -187,6 +279,20 @@ class _ConfirmationBookingScreenState
       if (parishProvider.selectedParish == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select a parish.")),
+        );
+        return;
+      }
+
+      // Validate that both required documents are uploaded
+      if (_uploadedBaptismalData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Baptismal Certificate.")),
+        );
+        return;
+      }
+      if (_uploadedBirthData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Birth Certificate.")),
         );
         return;
       }
@@ -217,12 +323,8 @@ class _ConfirmationBookingScreenState
         additionalNotes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
-        uploadedFile: _uploadedFileData != null ? _uploadedFileData!['filename'] : null,
-        filePath: _uploadedFileData != null ? _uploadedFileData!['path'] : null,
-        fileUrl: _uploadedFileData != null ? _uploadedFileData!['url'] : null,
-        fileSize: _uploadedFileData != null ? _uploadedFileData!['size'] : null,
-        mimeType: _uploadedFileData != null ? _uploadedFileData!['mimetype'] : null,
-        documentType: 'baptismal_certificate',
+        baptismalCertificate: _uploadedBaptismalData,
+        birthCertificate: _uploadedBirthData,
       );
 
       if (success && mounted) {
@@ -436,69 +538,130 @@ class _ConfirmationBookingScreenState
                 ],
               ),
 
-              _buildSection(
-                title: "Required Document",
-                children: [
-                  const Text(
-                    "Baptismal Certificate *",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Please upload a copy of the baptismal certificate. Accepted formats: PDF, JPG, PNG",
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _pickBaptismalCertificate,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text(
-                      _baptismalCertificate != null
-                          ? 'File Selected: ${_baptismalCertificate!.name}'
-                          : 'Select Baptismal Certificate File',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _baptismalCertificate != null
-                          ? Colors.green[100]
-                          : Colors.grey[200],
-                      foregroundColor: Colors.black87,
-                    ),
-                  ),
-                  if (_baptismalCertificate != null) ...[
-                    const SizedBox(height: 12),
-                    _isUploadingFile
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              SizedBox(width: 12),
-                              Text('Uploading...'),
-                            ],
-                          )
-                        : ElevatedButton.icon(
-                            onPressed: _uploadedFileData == null ? _uploadBaptismalCertificate : null,
-                            icon: const Icon(Icons.cloud_upload),
-                            label: Text(
-                              _uploadedFileData != null
-                                  ? 'Uploaded Successfully'
-                                  : 'Upload Baptismal Certificate',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _uploadedFileData != null
-                                  ? Colors.green
-                                  : null,
-                              foregroundColor: _uploadedFileData != null
-                                  ? Colors.white
-                                  : null,
-                            ),
-                          ),
-                  ],
-                ],
-              ),
+               _buildSection(
+                 title: "Required Documents",
+                 children: [
+                   // Baptismal Certificate
+                   const Text(
+                     "Baptismal Certificate *",
+                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                   ),
+                   const SizedBox(height: 8),
+                   const Text(
+                     "Please upload a copy of the baptismal certificate. Accepted formats: PDF, JPG, PNG",
+                     style: TextStyle(fontSize: 14, color: Colors.grey),
+                   ),
+                   const SizedBox(height: 12),
+                   ElevatedButton.icon(
+                     onPressed: _pickBaptismalCertificate,
+                     icon: const Icon(Icons.attach_file),
+                     label: Text(
+                       _baptismalCertificate != null
+                           ? 'File Selected: ${_baptismalCertificate!.name}'
+                           : 'Select Baptismal Certificate File',
+                     ),
+                     style: ElevatedButton.styleFrom(
+                       backgroundColor: _baptismalCertificate != null
+                           ? Colors.green[100]
+                           : Colors.grey[200],
+                       foregroundColor: Colors.black87,
+                     ),
+                   ),
+                   if (_baptismalCertificate != null) ...[
+                     const SizedBox(height: 12),
+                     _isUploadingBaptismal
+                         ? const Row(
+                             mainAxisAlignment: MainAxisAlignment.center,
+                             children: [
+                               const SizedBox(
+                                 height: 20,
+                                 width: 20,
+                                 child: CircularProgressIndicator(strokeWidth: 2),
+                               ),
+                               const SizedBox(width: 12),
+                               const Text('Uploading...'),
+                             ],
+                           )
+                         : ElevatedButton.icon(
+                             onPressed: _uploadedBaptismalData == null ? _uploadBaptismalCertificate : null,
+                             icon: const Icon(Icons.cloud_upload),
+                             label: Text(
+                               _uploadedBaptismalData != null
+                                   ? 'Uploaded Successfully'
+                                   : 'Upload Baptismal Certificate',
+                             ),
+                             style: ElevatedButton.styleFrom(
+                               backgroundColor: _uploadedBaptismalData != null
+                                   ? Colors.green
+                                   : null,
+                               foregroundColor: _uploadedBaptismalData != null
+                                   ? Colors.white
+                                   : null,
+                             ),
+                           ),
+                   ],
+                   const SizedBox(height: 24),
+                   // Birth Certificate
+                   const Text(
+                     "Birth Certificate *",
+                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                   ),
+                   const SizedBox(height: 8),
+                   const Text(
+                     "Please upload a copy of the birth certificate. Accepted formats: PDF, JPG, PNG",
+                     style: TextStyle(fontSize: 14, color: Colors.grey),
+                   ),
+                   const SizedBox(height: 12),
+                   ElevatedButton.icon(
+                     onPressed: _pickBirthCertificate,
+                     icon: const Icon(Icons.attach_file),
+                     label: Text(
+                       _birthCertificate != null
+                           ? 'File Selected: ${_birthCertificate!.name}'
+                           : 'Select Birth Certificate File',
+                     ),
+                     style: ElevatedButton.styleFrom(
+                       backgroundColor: _birthCertificate != null
+                           ? Colors.green[100]
+                           : Colors.grey[200],
+                       foregroundColor: Colors.black87,
+                     ),
+                   ),
+                   if (_birthCertificate != null) ...[
+                     const SizedBox(height: 12),
+                     _isUploadingBirth
+                         ? const Row(
+                             mainAxisAlignment: MainAxisAlignment.center,
+                             children: [
+                               const SizedBox(
+                                 height: 20,
+                                 width: 20,
+                                 child: CircularProgressIndicator(strokeWidth: 2),
+                               ),
+                               const SizedBox(width: 12),
+                               const Text('Uploading...'),
+                             ],
+                           )
+                         : ElevatedButton.icon(
+                             onPressed: _uploadedBirthData == null ? _uploadBirthCertificate : null,
+                             icon: const Icon(Icons.cloud_upload),
+                             label: Text(
+                               _uploadedBirthData != null
+                                   ? 'Uploaded Successfully'
+                                   : 'Upload Birth Certificate',
+                             ),
+                             style: ElevatedButton.styleFrom(
+                               backgroundColor: _uploadedBirthData != null
+                                   ? Colors.green
+                                   : null,
+                               foregroundColor: _uploadedBirthData != null
+                                   ? Colors.white
+                                   : null,
+                             ),
+                           ),
+                   ],
+                 ],
+               ),
 
               _buildSection(
                 title: "Booking Preferences",

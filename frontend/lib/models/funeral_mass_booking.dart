@@ -1,6 +1,9 @@
+import 'document.dart';
+
 class FuneralMassBooking {
   final int? id;
   final int parishId;
+  final String? parishName;
   final int userId;
   final String? deceasedFullName;
   final String? dateOfDeath;
@@ -20,10 +23,12 @@ class FuneralMassBooking {
   final String? approvedAt;
   final String? createdAt;
   final String? updatedAt;
+  final List<Document>? documents;
 
   FuneralMassBooking({
     this.id,
     required this.parishId,
+    this.parishName,
     required this.userId,
     this.deceasedFullName,
     this.dateOfDeath,
@@ -43,12 +48,14 @@ class FuneralMassBooking {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.documents,
   });
 
   factory FuneralMassBooking.fromJson(Map<String, dynamic> json) {
     return FuneralMassBooking(
       id: json['id'],
       parishId: json['parishId'],
+      parishName: json['parish']?['name'],
       userId: json['userId'],
       deceasedFullName: json['deceasedFullName'],
       dateOfDeath: json['dateOfDeath'],
@@ -68,6 +75,9 @@ class FuneralMassBooking {
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      documents: json['documents'] != null
+          ? (json['documents'] as List).map((doc) => Document.fromJson(doc)).toList()
+          : null,
     );
   }
 
@@ -96,6 +106,7 @@ class FuneralMassBooking {
   FuneralMassBooking copyWith({
     int? id,
     int? parishId,
+    String? parishName,
     int? userId,
     String? deceasedFullName,
     String? dateOfDeath,
@@ -115,10 +126,12 @@ class FuneralMassBooking {
     String? approvedAt,
     String? createdAt,
     String? updatedAt,
+    List<Document>? documents,
   }) {
     return FuneralMassBooking(
       id: id ?? this.id,
       parishId: parishId ?? this.parishId,
+      parishName: parishName ?? this.parishName,
       userId: userId ?? this.userId,
       deceasedFullName: deceasedFullName ?? this.deceasedFullName,
       dateOfDeath: dateOfDeath ?? this.dateOfDeath,
@@ -138,6 +151,7 @@ class FuneralMassBooking {
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 }

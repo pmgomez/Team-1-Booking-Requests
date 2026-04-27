@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import '../models/anointing_sick_booking.dart';
 import '../models/api_response.dart';
 import '../config/api_config.dart';
@@ -157,6 +159,145 @@ class AnointingSickService {
       return ApiResponse<AnointingSickBooking>(
         success: false,
         message: 'Network error updating anointing status',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Get anointing sick booking by ID
+  Future<ApiResponse<AnointingSickBooking>> getAnointingSickBookingById({
+    required String token,
+    required int id,
+  }) async {
+    try {
+      final response = await ApiConfig.getWithAuth(
+        '${ApiConfig.anointingSickEndpoint}/$id',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = AnointingSickBooking.fromJson(data['booking']);
+        return ApiResponse<AnointingSickBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<AnointingSickBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to fetch anointing booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<AnointingSickBooking>(
+        success: false,
+        message: 'Network error fetching anointing booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Update anointing sick booking (full fields - admin)
+  Future<ApiResponse<AnointingSickBooking>> updateAnointingSickBooking({
+    required String token,
+    required int id,
+    String? sickPersonName,
+    String? contactPersonName,
+    String? contactEmail,
+    String? contactPhone,
+    String? location,
+    String? locationAddress,
+    String? preferredDate,
+    String? preferredTimeSlot,
+    String? preferredPriest,
+    String? additionalNotes,
+  }) async {
+    try {
+      final requestBody = <String, dynamic>{
+        if (sickPersonName != null) 'sickPersonName': sickPersonName,
+        if (contactPersonName != null) 'contactPersonName': contactPersonName,
+        if (contactEmail != null) 'contactEmail': contactEmail,
+        if (contactPhone != null) 'contactPhone': contactPhone,
+        if (location != null) 'location': location,
+        if (locationAddress != null) 'locationAddress': locationAddress,
+        if (preferredDate != null) 'preferredDate': preferredDate,
+        if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
+        if (preferredPriest != null) 'preferredPriest': preferredPriest,
+        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      };
+
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.anointingSickEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = AnointingSickBooking.fromJson(data['booking']);
+        return ApiResponse<AnointingSickBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<AnointingSickBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to update anointing booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<AnointingSickBooking>(
+        success: false,
+        message: 'Network error updating anointing booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Attach document to anointing sick booking
+  Future<ApiResponse<Map<String, dynamic>>> attachDocumentToBooking({
+    required int bookingId,
+    required String token,
+    required String filePath,
+    String? documentType,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.anointingSickEndpoint}/$bookingId/document');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('document', filePath));
+      if (documentType != null) {
+        request.fields['documentType'] = documentType;
+      }
+      request.headers.addAll(ApiConfig.getAuthHeaders(token));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data['document'],
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to attach document',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error attaching document',
         errors: [e.toString()],
       );
     }

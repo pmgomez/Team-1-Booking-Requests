@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/confirmation_booking.dart';
 import '../models/api_response.dart';
 import '../config/api_config.dart';
@@ -69,14 +70,33 @@ class ConfirmationService {
     required String preferredTimeSlot,
     String? preferredPriest,
     String? additionalNotes,
-    String? uploadedFile,
-    String? filePath,
-    String? fileUrl,
-    int? fileSize,
-    String? mimeType,
-    String? documentType,
+    Map<String, dynamic>? baptismalCertificate,
+    Map<String, dynamic>? birthCertificate,
   }) async {
     try {
+      // Build documents array from provided certificate data
+      List<Map<String, dynamic>> documents = [];
+      if (baptismalCertificate != null) {
+        documents.add({
+          'uploadedFile': baptismalCertificate['filename'],
+          'filePath': baptismalCertificate['path'],
+          'fileUrl': baptismalCertificate['url'],
+          'fileSize': baptismalCertificate['size'],
+          'mimeType': baptismalCertificate['mimetype'],
+          'documentType': 'baptismal_certificate',
+        });
+      }
+      if (birthCertificate != null) {
+        documents.add({
+          'uploadedFile': birthCertificate['filename'],
+          'filePath': birthCertificate['path'],
+          'fileUrl': birthCertificate['url'],
+          'fileSize': birthCertificate['size'],
+          'mimeType': birthCertificate['mimetype'],
+          'documentType': 'birth_certificate',
+        });
+      }
+
       final requestBody = {
         'parishId': parishId,
         'confirmandName': confirmandName,
@@ -88,12 +108,7 @@ class ConfirmationService {
         'preferredTimeSlot': preferredTimeSlot,
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
         if (additionalNotes != null) 'additionalNotes': additionalNotes,
-        if (uploadedFile != null) 'uploadedFile': uploadedFile,
-        if (filePath != null) 'filePath': filePath,
-        if (fileUrl != null) 'fileUrl': fileUrl,
-        if (fileSize != null) 'fileSize': fileSize,
-        if (mimeType != null) 'mimeType': mimeType,
-        if (documentType != null) 'documentType': documentType,
+        if (documents.isNotEmpty) 'documents': documents,
       };
 
       final response = await ApiConfig.postWithAuth(
@@ -167,6 +182,143 @@ class ConfirmationService {
       return ApiResponse<ConfirmationBooking>(
         success: false,
         message: 'Network error updating confirmation status',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Get confirmation booking by ID
+  Future<ApiResponse<ConfirmationBooking>> getConfirmationBookingById({
+    required String token,
+    required int id,
+  }) async {
+    try {
+      final response = await ApiConfig.getWithAuth(
+        '${ApiConfig.confirmationsEndpoint}/$id',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = ConfirmationBooking.fromJson(data['booking']);
+        return ApiResponse<ConfirmationBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<ConfirmationBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to fetch confirmation booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<ConfirmationBooking>(
+        success: false,
+        message: 'Network error fetching confirmation booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Update confirmation booking (full fields - admin)
+  Future<ApiResponse<ConfirmationBooking>> updateConfirmationBooking({
+    required String token,
+    required int id,
+    String? confirmandName,
+    String? fatherName,
+    String? motherName,
+    String? contactEmail,
+    String? contactPhone,
+    String? preferredDate,
+    String? preferredTimeSlot,
+    String? preferredPriest,
+    String? additionalNotes,
+  }) async {
+    try {
+      final requestBody = <String, dynamic>{
+        if (confirmandName != null) 'confirmandName': confirmandName,
+        if (fatherName != null) 'fatherName': fatherName,
+        if (motherName != null) 'motherName': motherName,
+        if (contactEmail != null) 'contactEmail': contactEmail,
+        if (contactPhone != null) 'contactPhone': contactPhone,
+        if (preferredDate != null) 'preferredDate': preferredDate,
+        if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
+        if (preferredPriest != null) 'preferredPriest': preferredPriest,
+        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      };
+
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.confirmationsEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = ConfirmationBooking.fromJson(data['booking']);
+        return ApiResponse<ConfirmationBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<ConfirmationBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to update confirmation booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<ConfirmationBooking>(
+        success: false,
+        message: 'Network error updating confirmation booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Attach document to confirmation booking
+  Future<ApiResponse<Map<String, dynamic>>> attachDocumentToBooking({
+    required int bookingId,
+    required String token,
+    required String filePath,
+    String? documentType,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.confirmationsEndpoint}/$bookingId/document');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('document', filePath));
+      if (documentType != null) {
+        request.fields['documentType'] = documentType;
+      }
+      request.headers.addAll(ApiConfig.getAuthHeaders(token));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data['document'],
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to attach document',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error attaching document',
         errors: [e.toString()],
       );
     }
