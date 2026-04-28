@@ -60,6 +60,8 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
 
     if (mounted && result.success && result.data != null) {
       final booking = result.data!;
+      final status = booking.status?.toLowerCase() ?? 'pending';
+      final isEditable = status == 'pending' || status == 'declined';
       setState(() {
         _booking = booking;
         _penitentNameController.text = booking.penitentName ?? '';
@@ -69,6 +71,16 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
         _notesController.text = booking.additionalNotes ?? '';
       });
+      if (widget.fromStatusButton && isEditable) {
+        setState(() => _isEditMode = true);
+      } else {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        final isOwner = booking.userId == currentUser?.id;
+        if (!widget.fromStatusButton && isOwner && isEditable) {
+          setState(() => _isEditMode = true);
+        }
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to load booking')));
     }
@@ -219,8 +231,12 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final role = authProvider.currentUser?.role;
+    final currentUser = authProvider.currentUser;
+    final role = currentUser?.role;
     final isAdmin = ['parish_admin', 'parish_staff', 'diocese_admin', 'diocese_staff'].contains(role);
+    final isOwner = _booking?.userId == currentUser?.id;
+    final status = _booking?.status?.toLowerCase();
+    final canEdit = isAdmin || (isOwner && (status == 'pending' || status == 'declined'));
 
     return Scaffold(
       appBar: AppBar(
@@ -237,7 +253,7 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
               color: _isSaving ? Colors.orange : null,
               onPressed: _saveChanges,
             )
-          else if (!_showStatusButtons && isAdmin)
+          else if (!_showStatusButtons && canEdit)
             IconButton(
               icon: const Icon(Icons.edit),
               tooltip: 'Edit',

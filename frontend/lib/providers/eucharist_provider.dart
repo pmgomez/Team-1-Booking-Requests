@@ -57,6 +57,7 @@ class EucharistProvider extends ChangeNotifier {
     required String preferredTimeSlot,
     String? preferredPriest,
     String? additionalNotes,
+    List<Map<String, dynamic>>? documents,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -73,6 +74,7 @@ class EucharistProvider extends ChangeNotifier {
       preferredTimeSlot: preferredTimeSlot,
       preferredPriest: preferredPriest,
       additionalNotes: additionalNotes,
+      documents: documents,
     );
 
     if (result.success && result.data != null) {
@@ -141,5 +143,33 @@ class EucharistProvider extends ChangeNotifier {
   void _setErrorMessage(String? message) {
     _errorMessage = message;
     notifyListeners();
+  }
+
+  Future<bool> attachDocumentToBooking({
+    required int bookingId,
+    required String token,
+    required String filePath,
+    String? documentType,
+  }) async {
+    _setLoading(true);
+    _setErrorMessage(null);
+
+    final result = await _eucharistService.attachDocumentToBooking(
+      bookingId: bookingId,
+      token: token,
+      filePath: filePath,
+      documentType: documentType,
+    );
+
+    if (result.success) {
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } else {
+      _setLoading(false);
+      _setErrorMessage(result.message ?? 'Failed to upload document');
+      notifyListeners();
+      return false;
+    }
   }
 }

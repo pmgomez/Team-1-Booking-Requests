@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../models/document.dart';
 import '../models/funeral_mass_booking.dart';
 import '../providers/auth_provider.dart';
 import '../services/funeral_mass_service.dart';
-import '../config/api_config.dart';
 
 class FuneralMassDetailScreen extends StatefulWidget {
   final int? funeralMassId;
@@ -24,8 +20,6 @@ class FuneralMassDetailScreen extends StatefulWidget {
 
 class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
   final FuneralMassService _funeralMassService = FuneralMassService();
-  XFile? _documentFile;
-  bool _isUploading = false;
 
   bool _isEditMode = false;
   bool _isSaving = false;
@@ -45,8 +39,6 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
   final TextEditingController _preferredTimeController = TextEditingController();
   final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-
-  List<Document> _documents = [];
 
   @override
   void initState() {
@@ -75,6 +67,8 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
 
     if (mounted && result.success && result.data != null) {
       final booking = result.data!;
+      final status = booking.status.toLowerCase();
+      final isEditable = status == 'pending' || status == 'declined';
       setState(() {
         _booking = booking;
         _deceasedNameController.text = booking.deceasedFullName ?? '';
@@ -89,83 +83,18 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
         _preferredPriestController.text = booking.preferredPriest ?? '';
         _notesController.text = booking.additionalNotes ?? '';
-        _documents = booking.documents ?? [];
       });
+      if (widget.fromStatusButton && isEditable) {
+        setState(() => _isEditMode = true);
+      } else {
+        final currentUser = authProvider.currentUser;
+        final isOwner = booking.userId == currentUser?.id;
+        if (!widget.fromStatusButton && isOwner && isEditable) {
+          setState(() => _isEditMode = true);
+        }
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to load booking')));
-    }
-  }
-
-  Future<void> _pickDocumentFile() async {
-    final picker = ImagePicker();
-    final result = await picker.pickImage(source: ImageSource.gallery);
-    if (result != null && mounted) {
-      setState(() {
-        _documentFile = XFile(result.path, name: result.name, mimeType: result.mimeType);
-      });
-    }
-  }
-
-  Future<void> _uploadDocument() async {
-    if (_documentFile == null || widget.funeralMassId == null) return;
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token;
-    if (token == null) return;
-
-    setState(() => _isUploading = true);
-
-    final result = await _funeralMassService.attachDocumentToBooking(
-      bookingId: widget.funeralMassId!,
-      token: token,
-      filePath: _documentFile!.path,
-      documentType: 'other',
-    );
-
-    if (!mounted) return;
-    setState(() => _isUploading = false);
-
-    if (result.success) {
-      await _loadBooking();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document uploaded successfully')));
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Upload failed')));
-      }
-    }
-  }
-
-  /// Opens a document by launching its URL
-  Future<void> _openDocument(Document document) async {
-    if (document.fileUrl == null || document.fileUrl!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Document URL is not available')),
-      );
-      return;
-    }
-
-    try {
-      final baseUri = Uri.parse(ApiConfig.baseUrl);
-      final fileUri = baseUri.resolve(document.fileUrl!);
-
-      final success = await launchUrl(
-        fileUri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to open document. Please check if the file exists.')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening document: $e')),
-        );
-      }
     }
   }
 
@@ -338,8 +267,12 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final role = authProvider.currentUser?.role;
+    final currentUser = authProvider.currentUser;
+    final role = currentUser?.role;
     final isAdmin = ['parish_admin', 'parish_staff', 'diocese_admin', 'diocese_staff'].contains(role);
+    final isOwner = _booking?.userId == currentUser?.id;
+    final status = _booking?.status?.toLowerCase();
+    final canEdit = isAdmin || (isOwner && (status == 'pending' || status == 'declined'));
 
     return Scaffold(
       appBar: AppBar(
@@ -356,7 +289,7 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
               color: _isSaving ? Colors.orange : null,
               onPressed: _saveChanges,
             )
-          else if (!_showStatusButtons && isAdmin)
+          else if (!_showStatusButtons && canEdit)
             IconButton(
               icon: const Icon(Icons.edit),
               tooltip: 'Edit',
@@ -392,59 +325,6 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
             _textField("Additional Notes", _notesController, maxLines: 3, enabled: _isEditMode),
 
             const SizedBox(height: 16),
-            Text('Documents', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-            Card(child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (_documents.isNotEmpty) ...[
-                  for (final doc in _documents)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                        title: Text(doc.documentType?.toUpperCase().replaceAll('_', ' ') ?? 'DOCUMENT'),
-                        subtitle: Text(doc.fileName ?? 'File'),
-                        trailing: doc.isVerified == true
-                            ? Icon(Icons.check_circle, color: Colors.green[600])
-                            : Icon(Icons.pending, color: Colors.orange),
-                        onTap: () => _openDocument(doc),
-                      ),
-                    )
-                ] else ...[
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text('No documents uploaded', style: TextStyle(color: Colors.grey)),
-                  )
-                ],
-
-                if (_isEditMode) ...[
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.attach_file),
-                    label: const Text('Select Document'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200]),
-                    onPressed: _pickDocumentFile,
-                  ),
-                  if (_documentFile != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                        Text(_documentFile!.name),
-                        const SizedBox(width: 8),
-                        if (_isUploading)
-                          const CircularProgressIndicator(strokeWidth: 2)
-                        else
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.cloud_upload),
-                            label: const Text('Upload'),
-                            onPressed: _uploadDocument,
-                          ),
-                      ]),
-                    ),
-                ],
-              ]),
-            )),
-
             _buildStatusSection(isAdmin, widget.funeralMassId ?? 0),
           ]),
         ),

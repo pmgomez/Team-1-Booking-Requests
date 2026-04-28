@@ -46,6 +46,11 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
           }
         });
       }
+
+      // Default contact email to current user's email if available
+      if (authProvider.currentUser?.email != null) {
+        _contactEmailController.text = authProvider.currentUser!.email;
+      }
     });
   }
 

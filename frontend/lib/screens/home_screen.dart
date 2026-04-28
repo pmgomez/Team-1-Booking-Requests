@@ -3,12 +3,16 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/parish_provider.dart';
 import '../utils/role_helpers.dart';
+import '../services/user_booking_service.dart';
 
-// Home Screen
-
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final List<Map<String, String>> services = const [
     {
       "title": "Baptism",
@@ -52,6 +56,124 @@ class HomeScreen extends StatelessWidget {
     },
   ];
 
+  bool _isLoadingStats = true;
+  Map<String, int> _bookingStats = {};
+  int _totalBookings = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userRole = authProvider.currentUser?.role ?? Roles.parishioner;
+    if (!Roles.isAdmin(userRole)) {
+      _loadBookingStats();
+    } else {
+      setState(() => _isLoadingStats = false);
+    }
+  }
+
+  Future<void> _loadBookingStats() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+      return;
+    }
+    try {
+      final response = await UserBookingService().getUserBookings(
+        token: token,
+        limit: 1000,
+      );
+      if (mounted) {
+        if (response.success && response.data != null) {
+          final bookings = response.data as List;
+          Map<String, int> stats = {
+            'total': bookings.length,
+            'pending': 0,
+            'approved': 0,
+            'declined': 0,
+            'completed': 0,
+          };
+          for (var booking in bookings) {
+            final status = (booking['status'] ?? 'pending').toString().toLowerCase();
+            if (stats.containsKey(status)) {
+              stats[status] = stats[status]! + 1;
+            } else {
+              stats[status] = 1;
+            }
+          }
+          setState(() {
+            _bookingStats = stats;
+            _totalBookings = bookings.length;
+            _isLoadingStats = false;
+          });
+        } else {
+          setState(() => _isLoadingStats = false);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 28, color: color),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -60,7 +182,6 @@ class HomeScreen extends StatelessWidget {
     final isDioceseLevel = Roles.isDioceseLevel(userRole);
 
     // Show password change modal if required and user is not a parishioner
-    // (parishioners who signed up don't need to change password)
     if (authProvider.mustChangePassword &&
         userRole != Roles.parishioner &&
         context.mounted) {
@@ -152,6 +273,37 @@ class HomeScreen extends StatelessWidget {
               title: const Text('Home'),
               onTap: () => Navigator.pop(context),
             ),
+            // Parishioner Menu Items
+            if (!isAdmin) ...[
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'MY ACCOUNT',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.list_alt),
+                title: const Text('My Bookings'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/my-bookings');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('My Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/my-profile');
+                },
+              ),
+            ],
             // Admin/Staff Menu Items
             if (isAdmin) ...[
               const Divider(),
@@ -330,6 +482,131 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 24),
           ],
 
+          // Parishioner Quick Actions
+          if (!isAdmin) ...[
+            Card(
+              color: Colors.green.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Quick Actions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/my-bookings');
+                          },
+                          icon: const Icon(Icons.list_alt, size: 20),
+                          label: const Text('My Bookings'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade700,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/my-profile');
+                          },
+                          icon: const Icon(Icons.person, size: 20),
+                          label: const Text('My Profile'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade700,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Booking Statistics Section
+            _isLoadingStats
+                ? const Center(child: CircularProgressIndicator())
+                : _totalBookings > 0
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Bookings',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 1.3,
+                            ),
+                            itemCount: _bookingStats.entries.where((e) => e.key != 'total' && e.value > 0).length,
+                            itemBuilder: (context, index) {
+                              final entries = _bookingStats.entries.where((e) => e.key != 'total' && e.value > 0).toList();
+                              if (index >= entries.length) return const SizedBox.shrink();
+                              final entry = entries[index];
+                              final status = entry.key;
+                              final count = entry.value;
+                              Color color;
+                              IconData icon;
+                              switch (status) {
+                                case 'pending':
+                                  color = Colors.orange;
+                                  icon = Icons.pending_actions;
+                                  break;
+                                case 'approved':
+                                  color = Colors.green;
+                                  icon = Icons.check_circle;
+                                  break;
+                                case 'declined':
+                                  color = Colors.red;
+                                  icon = Icons.cancel;
+                                  break;
+                                case 'completed':
+                                  color = Colors.blue;
+                                  icon = Icons.done_all;
+                                  break;
+                                default:
+                                  color = Colors.grey;
+                                  icon = Icons.info;
+                              }
+                              return _buildStatCard(
+                                title: _capitalize(status),
+                                value: count.toString(),
+                                icon: icon,
+                                color: color,
+                              );
+                            },
+                          ),
+                        ],
+                      )
+                    : const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('You have no bookings yet.'),
+                        ),
+                      ),
+            const SizedBox(height: 24),
+          ],
+
+          // Services Grid
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -425,5 +702,10 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
   }
 }

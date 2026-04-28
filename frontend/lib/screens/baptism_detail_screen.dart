@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../models/baptism_booking.dart';
@@ -24,7 +24,7 @@ class BaptismDetailScreen extends StatefulWidget {
 
 class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
   final BaptismService _baptismService = BaptismService();
-  XFile? _birthCertificateFile;
+  PlatformFile? _birthCertificateFile;
   bool _isUploading = false;
 
   bool _isEditMode = false;
@@ -62,6 +62,8 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
     final result = await _baptismService.getBaptismBookingById(id: widget.baptismId!);
     if (mounted && result.success && result.data != null) {
       final booking = result.data!;
+      final status = booking.status?.toLowerCase() ?? 'pending';
+      final isEditable = status == 'pending' || status == 'declined';
       setState(() {
         _booking = booking;
         _childNameController.text = booking.childFullName ?? '';
@@ -75,35 +77,76 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
         _preferredPriestController.text = booking.preferredPriest ?? '';
         _notesController.text = booking.additionalNotes ?? '';
         _documents = booking.documents ?? [];
+        _birthCertificateFile = null;
       });
+      if (widget.fromStatusButton && isEditable) {
+        setState(() => _isEditMode = true);
+      } else {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        final isOwner = booking.userId == currentUser?.id;
+        if (!widget.fromStatusButton && isOwner && isEditable) {
+          setState(() => _isEditMode = true);
+        }
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to load booking')));
     }
   }
 
   Future<void> _pickBirthCertificateFile() async {
-    final picker = ImagePicker();
-    final result = await picker.pickImage(source: ImageSource.gallery);
-    if (result != null && mounted) {
-      setState(() {
-        _birthCertificateFile = XFile(result.path, name: result.name, mimeType: result.mimeType);
-      });
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _birthCertificateFile = result.files.first;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
     }
   }
 
   Future<void> _uploadBirthCertificate() async {
-    if (_birthCertificateFile == null || widget.baptismId == null) return;
+    if (_birthCertificateFile == null || widget.baptismId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final filePath = _birthCertificateFile!.path;
+    if (filePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to get file path. Please try a different file.')),
+      );
+      return;
+    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
-    if (token == null) return;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
 
     setState(() => _isUploading = true);
 
     final result = await _baptismService.attachDocumentToBooking(
       bookingId: widget.baptismId!,
       token: token,
-      filePath: _birthCertificateFile!.path,
+      filePath: filePath,
       documentType: 'birth_certificate',
     );
 
@@ -111,7 +154,6 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
 
     if (mounted) {
       if (result.success) {
-        // Reload the booking to get updated documents
         await _loadBooking();
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Birth certificate uploaded successfully')));
       } else {
@@ -244,7 +286,10 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
   void _toggleEditMode() {
     setState(() {
       _isEditMode = !_isEditMode;
-      if (!_isEditMode) _showStatusButtons = true;
+      if (!_isEditMode) {
+        _showStatusButtons = true;
+        _birthCertificateFile = null;
+      }
     });
   }
 
@@ -326,9 +371,13 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final role = authProvider.currentUser?.role;
+    final currentUser = authProvider.currentUser;
+    final role = currentUser?.role;
     final isAdmin = ['parish_admin', 'parish_staff', 'diocese_admin', 'diocese_staff'].contains(role);
-    
+    final isOwner = _booking?.userId == currentUser?.id;
+    final status = _booking?.status?.toLowerCase();
+    final canEdit = isAdmin || (isOwner && (status == 'pending' || status == 'declined'));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Baptism Details"),
@@ -344,7 +393,7 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
               color: _isSaving ? Colors.orange : null,
               onPressed: _saveChanges,
             )
-          else if (!_showStatusButtons && isAdmin)
+          else if (!_showStatusButtons && canEdit)
             IconButton(
               icon: const Icon(Icons.edit),
               tooltip: 'Edit',
@@ -378,15 +427,67 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
           _textField("Preferred Priest", _preferredPriestController, enabled: _isEditMode),
           _textField("Additional Notes", _notesController, maxLines: 3, enabled: _isEditMode),
 
-          const SizedBox(height: 16),
-          Text('Documents', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-          Card(child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Display all documents
-                if (_documents.isNotEmpty) ...[
-                  for (final doc in _documents)
-                    Padding(
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "PSA Birth Certificate *",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Please upload a copy of the PSA birth certificate. Accepted formats: PDF, JPG, PNG",
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _pickBirthCertificateFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(
+                      _birthCertificateFile != null
+                          ? 'File Selected: ${_birthCertificateFile!.name}'
+                          : 'Select Birth Certificate File',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _birthCertificateFile != null
+                          ? Colors.green[100]
+                          : Colors.grey[200],
+                      foregroundColor: Colors.black87,
+                    ),
+                  ),
+                  if (_birthCertificateFile != null) ...[
+                    const SizedBox(height: 12),
+                    _isUploading
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 12),
+                              Text('Uploading...'),
+                            ],
+                          )
+                        : ElevatedButton.icon(
+                            onPressed: _isUploading ? null : _uploadBirthCertificate,
+                            icon: const Icon(Icons.cloud_upload),
+                            label: const Text('Upload Birth Certificate'),
+                          ),
+                  ],
+                  const SizedBox(height: 16),
+                  if (_documents.isNotEmpty) ...[
+                    const Text(
+                      'Uploaded Documents',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._documents.map((doc) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
@@ -397,42 +498,12 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
                             : Icon(Icons.pending, color: Colors.orange),
                         onTap: () => _openDocument(doc),
                       ),
-                    )
-                 ] else ...[
-                   const Padding(
-                     padding: EdgeInsets.only(bottom: 8),
-                     child: Text('No documents uploaded', style: TextStyle(color: Colors.grey)),
-                   )
-                 ],
-
-                 // Edit mode actions
-                 if (_isEditMode) ...[
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text('Select File'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200]),
-                  onPressed: _pickBirthCertificateFile,
-                ),
-                if (_birthCertificateFile != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                      Text(_birthCertificateFile!.name),
-                      const SizedBox(width: 8),
-                      if (_isUploading)
-                        const CircularProgressIndicator(strokeWidth: 2)
-                      else
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.cloud_upload),
-                          label: const Text('Upload'),
-                          onPressed: _uploadBirthCertificate,
-                        ),
-                    ]),
-                  ),
-              ],
-            ]),
-          )),
+                    )),
+                  ],
+                ],
+              ),
+            ),
+          ),
 
           _buildStatusSection(isAdmin, widget.baptismId ?? 0),
         ]),

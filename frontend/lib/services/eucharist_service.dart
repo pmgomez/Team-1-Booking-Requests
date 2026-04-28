@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/eucharist_booking.dart';
 import '../models/api_response.dart';
 import '../config/api_config.dart';
@@ -69,6 +70,7 @@ class EucharistService {
     required String preferredTimeSlot,
     String? preferredPriest,
     String? additionalNotes,
+    List<Map<String, dynamic>>? documents,
   }) async {
     try {
       final requestBody = {
@@ -82,6 +84,7 @@ class EucharistService {
         'preferredTimeSlot': preferredTimeSlot,
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
         if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (documents != null && documents.isNotEmpty) 'documents': documents,
       };
 
       final response = await ApiConfig.postWithAuth(
@@ -111,6 +114,98 @@ class EucharistService {
       return ApiResponse<EucharistBooking>(
         success: false,
         message: 'Network error creating eucharist booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<EucharistBooking>> getEucharistBookingById({
+    required String token,
+    required int id,
+  }) async {
+    try {
+      final response = await ApiConfig.getWithAuth(
+        '${ApiConfig.eucharistEndpoint}/$id',
+        token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = EucharistBooking.fromJson(data['booking']);
+        return ApiResponse<EucharistBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<EucharistBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to fetch eucharist booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<EucharistBooking>(
+        success: false,
+        message: 'Network error fetching eucharist booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<EucharistBooking>> updateEucharistBooking({
+    required String token,
+    required int id,
+    String? communicantName,
+    String? fatherName,
+    String? motherName,
+    String? contactEmail,
+    String? contactPhone,
+    String? preferredDate,
+    String? preferredTimeSlot,
+    String? preferredPriest,
+    String? additionalNotes,
+  }) async {
+    try {
+      final requestBody = <String, dynamic>{
+        if (communicantName != null) 'communicantName': communicantName,
+        if (fatherName != null) 'fatherName': fatherName,
+        if (motherName != null) 'motherName': motherName,
+        if (contactEmail != null) 'contactEmail': contactEmail,
+        if (contactPhone != null) 'contactPhone': contactPhone,
+        if (preferredDate != null) 'preferredDate': preferredDate,
+        if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
+        if (preferredPriest != null) 'preferredPriest': preferredPriest,
+        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      };
+
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.eucharistEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = EucharistBooking.fromJson(data['booking']);
+        return ApiResponse<EucharistBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<EucharistBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to update eucharist booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<EucharistBooking>(
+        success: false,
+        message: 'Network error updating eucharist booking',
         errors: [e.toString()],
       );
     }
@@ -155,6 +250,81 @@ class EucharistService {
       return ApiResponse<EucharistBooking>(
         success: false,
         message: 'Network error updating eucharist status',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<void>> deleteEucharistBooking({
+    required String token,
+    required int id,
+  }) async {
+    try {
+      final response = await ApiConfig.deleteWithAuth(
+        '${ApiConfig.eucharistEndpoint}/$id',
+        token,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return ApiResponse<void>(
+          success: true,
+          message: 'Eucharist booking cancelled successfully',
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<void>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to cancel eucharist booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<void>(
+        success: false,
+        message: 'Network error cancelling eucharist booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  // Attach document to eucharist booking
+  Future<ApiResponse<Map<String, dynamic>>> attachDocumentToBooking({
+    required int bookingId,
+    required String token,
+    required String filePath,
+    String? documentType,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.eucharistEndpoint}/$bookingId/document');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('document', filePath));
+      if (documentType != null) {
+        request.fields['documentType'] = documentType;
+      }
+      request.headers.addAll(ApiConfig.getAuthHeaders(token));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: data['document'],
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to attach document',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error attaching document',
         errors: [e.toString()],
       );
     }

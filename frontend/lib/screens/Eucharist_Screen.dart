@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/eucharist_provider.dart';
 import '../providers/parish_provider.dart';
+import '../services/file_service.dart';
 
 class EucharistScreen extends StatefulWidget {
   const EucharistScreen({super.key});
@@ -26,10 +28,18 @@ class _EucharistScreenState extends State<EucharistScreen> {
   final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
+  // Document files and upload data
+  PlatformFile? _birthCertificateFile;
+  bool _isUploadingBirth = false;
+  Map<String, dynamic>? _uploadedBirthData;
+
+  PlatformFile? _baptismalCertificateFile;
+  bool _isUploadingBaptismal = false;
+  Map<String, dynamic>? _uploadedBaptismalData;
+
   @override
   void initState() {
     super.initState();
-    // Load parishes for selection
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -48,6 +58,11 @@ class _EucharistScreenState extends State<EucharistScreen> {
           }
         });
       }
+
+      // Set default contact email to current user's email
+      if (authProvider.currentUser?.email != null) {
+        _contactEmailController.text = authProvider.currentUser!.email;
+      }
     });
   }
 
@@ -63,6 +78,166 @@ class _EucharistScreenState extends State<EucharistScreen> {
     _preferredPriestController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  // Birth Certificate
+  Future<void> _pickBirthCertificate() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _birthCertificateFile = result.files.first;
+          _uploadedBirthData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadBirthCertificate() async {
+    if (_birthCertificateFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingBirth = true);
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _birthCertificateFile!.path!,
+        token: token,
+        category: 'eucharist',
+        additionalFields: {
+          'documentType': 'birth_certificate',
+        },
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          setState(() {
+            _uploadedBirthData = response.data!['file'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Birth certificate uploaded successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Upload failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingBirth = false);
+      }
+    }
+  }
+
+  // Baptismal Certificate
+  Future<void> _pickBaptismalCertificate() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _baptismalCertificateFile = result.files.first;
+          _uploadedBaptismalData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadBaptismalCertificate() async {
+    if (_baptismalCertificateFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingBaptismal = true);
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _baptismalCertificateFile!.path!,
+        token: token,
+        category: 'eucharist',
+        additionalFields: {
+          'documentType': 'baptismal_certificate',
+        },
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          setState(() {
+            _uploadedBaptismalData = response.data!['file'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Baptismal certificate uploaded successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Upload failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingBaptismal = false);
+      }
+    }
   }
 
   Future<void> _submitForm() async {
@@ -93,6 +268,40 @@ class _EucharistScreenState extends State<EucharistScreen> {
         return;
       }
 
+      // Validate required documents are uploaded
+      if (_uploadedBirthData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Birth Certificate.")),
+        );
+        return;
+      }
+      if (_uploadedBaptismalData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Baptismal Certificate.")),
+        );
+        return;
+      }
+
+      // Build documents array
+      final documents = [
+        {
+          'uploadedFile': _uploadedBirthData!['fileName'],
+          'filePath': _uploadedBirthData!['filePath'],
+          'fileUrl': _uploadedBirthData!['fileUrl'],
+          'fileSize': _uploadedBirthData!['fileSize'],
+          'mimeType': _uploadedBirthData!['mimeType'],
+          'documentType': 'birth_certificate',
+        },
+        {
+          'uploadedFile': _uploadedBaptismalData!['fileName'],
+          'filePath': _uploadedBaptismalData!['filePath'],
+          'fileUrl': _uploadedBaptismalData!['fileUrl'],
+          'fileSize': _uploadedBaptismalData!['fileSize'],
+          'mimeType': _uploadedBaptismalData!['mimeType'],
+          'documentType': 'baptismal_certificate',
+        },
+      ];
+
       // Format dates to ISO format (YYYY-MM-DD)
       String formatDate(String date) {
         final parts = date.split('-');
@@ -118,6 +327,7 @@ class _EucharistScreenState extends State<EucharistScreen> {
         additionalNotes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        documents: documents,
       );
 
       if (success && mounted) {
@@ -164,6 +374,57 @@ class _EucharistScreenState extends State<EucharistScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDocumentUploadSection({
+    required String title,
+    required String description,
+    required PlatformFile? file,
+    required bool isUploading,
+    required Map<String, dynamic>? uploadedData,
+    required VoidCallback onPick,
+    required VoidCallback onUpload,
+  }) {
+    return _buildSection(
+      title: title,
+      children: [
+        Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: isUploading ? null : onPick,
+          icon: const Icon(Icons.attach_file),
+          label: const Text("Select Document"),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200]),
+        ),
+        if (file != null) ...[
+          const SizedBox(height: 8),
+          Text("Selected: ${file.name}", style: const TextStyle(color: Colors.blue)),
+        ],
+        if (uploadedData != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.green, size: 16),
+              SizedBox(width: 4),
+              Text("Uploaded", style: TextStyle(color: Colors.green)),
+            ],
+          ),
+        ],
+        if (!isUploading && file != null && uploadedData == null) ...[
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: onUpload,
+            icon: const Icon(Icons.cloud_upload),
+            label: const Text("Upload"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+          ),
+        ],
+        if (isUploading) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(),
+        ],
+      ],
     );
   }
 
@@ -350,6 +611,26 @@ class _EucharistScreenState extends State<EucharistScreen> {
                   ),
                 ),
               ]),
+
+              // Required Documents - Separate uploads
+              _buildDocumentUploadSection(
+                title: "Birth Certificate",
+                description: "Upload birth certificate of the communicant *",
+                file: _birthCertificateFile,
+                isUploading: _isUploadingBirth,
+                uploadedData: _uploadedBirthData,
+                onPick: _pickBirthCertificate,
+                onUpload: _uploadBirthCertificate,
+              ),
+              _buildDocumentUploadSection(
+                title: "Baptismal Certificate",
+                description: "Upload baptismal certificate of the communicant *",
+                file: _baptismalCertificateFile,
+                isUploading: _isUploadingBaptismal,
+                uploadedData: _uploadedBaptismalData,
+                onPick: _pickBaptismalCertificate,
+                onUpload: _uploadBaptismalCertificate,
+              ),
 
               // Additional Notes
               _buildSection(title: "Additional Information", children: [

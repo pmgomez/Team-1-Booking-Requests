@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/auth_provider.dart';
 import '../providers/parish_provider.dart';
 import '../providers/wedding_provider.dart';
+import '../services/file_service.dart';
 
 class WeddingBookingScreen extends StatefulWidget {
   const WeddingBookingScreen({super.key});
@@ -27,8 +28,22 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
   final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  // File storage
-  List<PlatformFile> _documents = [];
+  // Document files and upload data
+  PlatformFile? _cenomarFile;
+  bool _isUploadingCenomar = false;
+  Map<String, dynamic>? _uploadedCenomarData;
+
+  PlatformFile? _birthCertificateFile;
+  bool _isUploadingBirth = false;
+  Map<String, dynamic>? _uploadedBirthData;
+
+  PlatformFile? _baptismalCertificateFile;
+  bool _isUploadingBaptismal = false;
+  Map<String, dynamic>? _uploadedBaptismalData;
+
+  PlatformFile? _confirmationCertificateFile;
+  bool _isUploadingConfirmation = false;
+  Map<String, dynamic>? _uploadedConfirmationData;
 
   @override
   void initState() {
@@ -51,6 +66,11 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
           }
         });
       }
+
+      // Set default contact to current user's email
+      if (authProvider.currentUser?.email != null) {
+        _contactController.text = authProvider.currentUser!.email;
+      }
     });
   }
 
@@ -68,21 +88,323 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
     super.dispose();
   }
 
-  // Pick multiple documents
-  Future<void> _pickDocuments() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
-    );
-
-    if (result != null) {
-      setState(() {
-        _documents = result.files;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Selected ${result.files.length} document(s)")),
+  // CENOMAR
+  Future<void> _pickCenomar() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
       );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _cenomarFile = result.files.first;
+          _uploadedCenomarData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadCenomar() async {
+    if (_cenomarFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingCenomar = true);
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _cenomarFile!.path!,
+        token: token,
+        category: 'wedding',
+        additionalFields: {
+          'documentType': 'cenomar',
+        },
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          setState(() {
+            _uploadedCenomarData = response.data!['file'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('CENOMAR uploaded successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Upload failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingCenomar = false);
+      }
+    }
+  }
+
+  // Birth Certificate
+  Future<void> _pickBirthCertificate() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _birthCertificateFile = result.files.first;
+          _uploadedBirthData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadBirthCertificate() async {
+    if (_birthCertificateFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingBirth = true);
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _birthCertificateFile!.path!,
+        token: token,
+        category: 'wedding',
+        additionalFields: {
+          'documentType': 'birth_certificate',
+        },
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          setState(() {
+            _uploadedBirthData = response.data!['file'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Birth certificate uploaded successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Upload failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingBirth = false);
+      }
+    }
+  }
+
+  // Baptismal Certificate
+  Future<void> _pickBaptismalCertificate() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _baptismalCertificateFile = result.files.first;
+          _uploadedBaptismalData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadBaptismalCertificate() async {
+    if (_baptismalCertificateFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingBaptismal = true);
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _baptismalCertificateFile!.path!,
+        token: token,
+        category: 'wedding',
+        additionalFields: {
+          'documentType': 'baptismal_certificate',
+        },
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          setState(() {
+            _uploadedBaptismalData = response.data!['file'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Baptismal certificate uploaded successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Upload failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingBaptismal = false);
+      }
+    }
+  }
+
+  // Confirmation Certificate
+  Future<void> _pickConfirmationCertificate() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png'],
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _confirmationCertificateFile = result.files.first;
+          _uploadedConfirmationData = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadConfirmationCertificate() async {
+    if (_confirmationCertificateFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file first')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to upload files')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingConfirmation = true);
+
+    try {
+      final fileService = FileService();
+      final response = await fileService.uploadFile(
+        filePath: _confirmationCertificateFile!.path!,
+        token: token,
+        category: 'wedding',
+        additionalFields: {
+          'documentType': 'confirmation_certificate',
+        },
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          setState(() {
+            _uploadedConfirmationData = response.data!['file'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Confirmation certificate uploaded successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Upload failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingConfirmation = false);
+      }
     }
   }
 
@@ -106,12 +428,67 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         return;
       }
 
-      if (_documents.isEmpty) {
+      // Validate all required documents are uploaded
+      if (_uploadedCenomarData == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please upload required documents")),
+          const SnackBar(content: Text("Please upload the required CENOMAR.")),
         );
         return;
       }
+      if (_uploadedBirthData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Birth Certificate.")),
+        );
+        return;
+      }
+      if (_uploadedBaptismalData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Baptismal Certificate.")),
+        );
+        return;
+      }
+      if (_uploadedConfirmationData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload the required Confirmation Certificate.")),
+        );
+        return;
+      }
+
+      // Build documents array
+      final documents = [
+        {
+          'uploadedFile': _uploadedCenomarData!['fileName'],
+          'filePath': _uploadedCenomarData!['filePath'],
+          'fileUrl': _uploadedCenomarData!['fileUrl'],
+          'fileSize': _uploadedCenomarData!['fileSize'],
+          'mimeType': _uploadedCenomarData!['mimeType'],
+          'documentType': 'cenomar',
+        },
+        {
+          'uploadedFile': _uploadedBirthData!['fileName'],
+          'filePath': _uploadedBirthData!['filePath'],
+          'fileUrl': _uploadedBirthData!['fileUrl'],
+          'fileSize': _uploadedBirthData!['fileSize'],
+          'mimeType': _uploadedBirthData!['mimeType'],
+          'documentType': 'birth_certificate',
+        },
+        {
+          'uploadedFile': _uploadedBaptismalData!['fileName'],
+          'filePath': _uploadedBaptismalData!['filePath'],
+          'fileUrl': _uploadedBaptismalData!['fileUrl'],
+          'fileSize': _uploadedBaptismalData!['fileSize'],
+          'mimeType': _uploadedBaptismalData!['mimeType'],
+          'documentType': 'baptismal_certificate',
+        },
+        {
+          'uploadedFile': _uploadedConfirmationData!['fileName'],
+          'filePath': _uploadedConfirmationData!['filePath'],
+          'fileUrl': _uploadedConfirmationData!['fileUrl'],
+          'fileSize': _uploadedConfirmationData!['fileSize'],
+          'mimeType': _uploadedConfirmationData!['mimeType'],
+          'documentType': 'confirmation_certificate',
+        },
+      ];
 
       // Format dates to ISO format (YYYY-MM-DD)
       String formatDate(String date) {
@@ -151,6 +528,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         additionalNotes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        documents: documents,
       );
 
       if (success && mounted) {
@@ -201,6 +579,57 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
     );
   }
 
+  Widget _buildDocumentUploadSection({
+    required String title,
+    required String description,
+    required PlatformFile? file,
+    required bool isUploading,
+    required Map<String, dynamic>? uploadedData,
+    required VoidCallback onPick,
+    required VoidCallback onUpload,
+  }) {
+    return _buildSection(
+      title: title,
+      children: [
+        Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: isUploading ? null : onPick,
+          icon: const Icon(Icons.attach_file),
+          label: const Text("Select Document"),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200]),
+        ),
+        if (file != null) ...[
+          const SizedBox(height: 8),
+          Text("Selected: ${file.name}", style: const TextStyle(color: Colors.blue)),
+        ],
+        if (uploadedData != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.green, size: 16),
+              SizedBox(width: 4),
+              Text("Uploaded", style: TextStyle(color: Colors.green)),
+            ],
+          ),
+        ],
+        if (!isUploading && file != null && uploadedData == null) ...[
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: onUpload,
+            icon: const Icon(Icons.cloud_upload),
+            label: const Text("Upload"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+          ),
+        ],
+        if (isUploading) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,7 +638,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.of(context).pop(); // Back to Home
+            Navigator.of(context).pop();
           },
         ),
         centerTitle: true,
@@ -376,23 +805,43 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                 ),
               ]),
 
-              // Documents
-              _buildSection(title: "Required Documents", children: [
-                ElevatedButton.icon(
-                  onPressed: _pickDocuments,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text(
-                      "Upload Documents (CENOMAR, Birth, Baptismal, Confirmation) *"),
-                ),
-                const SizedBox(height: 8),
-                if (_documents.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _documents
-                        .map((file) => Text("• ${file.name}", style: const TextStyle(color: Colors.green)))
-                        .toList(),
-                  ),
-              ]),
+              // Required Documents - Separate uploads
+              _buildDocumentUploadSection(
+                title: "CENOMAR",
+                description: "Upload CENOMAR (Certificate of No Marriage) *",
+                file: _cenomarFile,
+                isUploading: _isUploadingCenomar,
+                uploadedData: _uploadedCenomarData,
+                onPick: _pickCenomar,
+                onUpload: _uploadCenomar,
+              ),
+              _buildDocumentUploadSection(
+                title: "Birth Certificate",
+                description: "Upload birth certificate of either the groom or bride *",
+                file: _birthCertificateFile,
+                isUploading: _isUploadingBirth,
+                uploadedData: _uploadedBirthData,
+                onPick: _pickBirthCertificate,
+                onUpload: _uploadBirthCertificate,
+              ),
+              _buildDocumentUploadSection(
+                title: "Baptismal Certificate",
+                description: "Upload baptismal certificate of either the groom or bride *",
+                file: _baptismalCertificateFile,
+                isUploading: _isUploadingBaptismal,
+                uploadedData: _uploadedBaptismalData,
+                onPick: _pickBaptismalCertificate,
+                onUpload: _uploadBaptismalCertificate,
+              ),
+              _buildDocumentUploadSection(
+                title: "Confirmation Certificate",
+                description: "Upload confirmation certificate of either the groom or bride *",
+                file: _confirmationCertificateFile,
+                isUploading: _isUploadingConfirmation,
+                uploadedData: _uploadedConfirmationData,
+                onPick: _pickConfirmationCertificate,
+                onUpload: _uploadConfirmationCertificate,
+              ),
 
               // Notes
               _buildSection(title: "Additional Information", children: [

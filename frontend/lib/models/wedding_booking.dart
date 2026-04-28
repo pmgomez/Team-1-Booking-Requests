@@ -1,3 +1,5 @@
+import '../models/document.dart';
+
 class WeddingBooking {
   final int? id;
   final int parishId;
@@ -17,6 +19,7 @@ class WeddingBooking {
   final String? approvedAt;
   final String? createdAt;
   final String? updatedAt;
+  final List<Document>? documents;
 
   WeddingBooking({
     this.id,
@@ -37,6 +40,7 @@ class WeddingBooking {
     this.approvedAt,
     this.createdAt,
     this.updatedAt,
+    this.documents,
   });
 
   factory WeddingBooking.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,9 @@ class WeddingBooking {
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+      documents: json['documents'] != null
+          ? (json['documents'] as List).map((doc) => Document.fromJson(doc)).toList()
+          : null,
     );
   }
 
@@ -78,6 +85,7 @@ class WeddingBooking {
       if (additionalNotes != null) 'additionalNotes': additionalNotes,
       if (status != null) 'status': status,
       if (adminNotes != null) 'adminNotes': adminNotes,
+      if (documents != null) 'documents': documents!.map((d) => d.toJson()).toList(),
     };
   }
 
@@ -100,6 +108,7 @@ class WeddingBooking {
     String? approvedAt,
     String? createdAt,
     String? updatedAt,
+    List<Document>? documents,
   }) {
     return WeddingBooking(
       id: id ?? this.id,
@@ -120,6 +129,7 @@ class WeddingBooking {
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 }

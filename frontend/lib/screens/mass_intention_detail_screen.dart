@@ -58,6 +58,8 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
 
     if (mounted && result.success && result.data != null) {
       final intention = result.data!;
+      final status = intention.status?.toLowerCase() ?? 'pending';
+      final isEditable = status == 'pending' || status == 'declined';
       print('Intention details: type=${intention.type}, details=${intention.intentionDetails}, donor=${intention.donorName}, date=${intention.dateRequested}, time=${intention.preferredTime}');
 
       // Map backend type to frontend label
@@ -85,6 +87,16 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         _parishNameController.text = intention.parishName ?? '';
         _selectedType = mapTypeToFrontend(intention.type);
       });
+      if (widget.fromStatusButton && isEditable) {
+        setState(() => _isEditMode = true);
+      } else {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        final isOwner = intention.submittedBy == currentUser?.id;
+        if (!widget.fromStatusButton && isOwner && isEditable) {
+          setState(() => _isEditMode = true);
+        }
+      }
     } else if (mounted) {
       print('Failed to load: ${result.message}');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to load mass intention')));
@@ -398,8 +410,12 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final role = authProvider.currentUser?.role;
+    final currentUser = authProvider.currentUser;
+    final role = currentUser?.role;
     final isAdmin = ['parish_admin', 'parish_staff', 'diocese_admin', 'diocese_staff'].contains(role);
+    final isOwner = _intention?.submittedBy == currentUser?.id;
+    final status = _intention?.status?.toLowerCase();
+    final canEdit = isAdmin || (isOwner && (status == 'pending' || status == 'declined'));
 
     return Scaffold(
       appBar: AppBar(
@@ -416,7 +432,7 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
               color: _isSaving ? Colors.orange : null,
               onPressed: _saveChanges,
             )
-          else if (!_showStatusButtons && isAdmin)
+          else if (!_showStatusButtons && canEdit)
             IconButton(
               icon: const Icon(Icons.edit),
               tooltip: 'Edit',
