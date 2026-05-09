@@ -1,3 +1,4 @@
+import 'note.dart';
 import 'document.dart';
 
 class BaptismBooking {
@@ -13,10 +14,10 @@ class BaptismBooking {
   final String? contactPhone;
   final String? preferredDate;
   final String? preferredTimeSlot;
-  final String? preferredPriest;
-  final String? additionalNotes;
+  final int? priestId;
+  final String? priestName;
+  final List<Note>? notes;
   final String? status;
-  final String? adminNotes;
   final int? approvedBy;
   final String? approvedAt;
   final String? createdAt;
@@ -36,10 +37,10 @@ class BaptismBooking {
     this.contactPhone,
     this.preferredDate,
     this.preferredTimeSlot,
-    this.preferredPriest,
-    this.additionalNotes,
+    this.priestId,
+    this.priestName,
+    this.notes,
     this.status,
-    this.adminNotes,
     this.approvedBy,
     this.approvedAt,
     this.createdAt,
@@ -48,6 +49,13 @@ class BaptismBooking {
   });
 
   factory BaptismBooking.fromJson(Map<String, dynamic> json) {
+    List<Note>? notesList;
+    if (json['notes'] != null) {
+      notesList = (json['notes'] as List)
+          .map((note) => Note.fromJson(note as Map<String, dynamic>))
+          .toList();
+    }
+
     return BaptismBooking(
       id: json['id'],
       parishId: json['parishId'],
@@ -61,15 +69,17 @@ class BaptismBooking {
       contactPhone: json['contactPhone'],
       preferredDate: json['preferredDate'],
       preferredTimeSlot: json['preferredTimeSlot'],
-      preferredPriest: json['preferredPriest'],
-      additionalNotes: json['additionalNotes'],
+      priestId: json['priestId'],
+      priestName: json['priest']?['firstName'] != null 
+          ? '${json['priest']['firstName']} ${json['priest']['lastName']}' 
+          : json['priestName'],
+      notes: notesList,
       status: json['status'],
-      adminNotes: json['adminNotes'],
       approvedBy: json['approvedBy'],
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
-      documents: json['documents'] != null 
+      documents: json['documents'] != null
           ? (json['documents'] as List).map((doc) => Document.fromJson(doc)).toList()
           : null,
     );
@@ -88,10 +98,10 @@ class BaptismBooking {
       if (contactPhone != null) 'contactPhone': contactPhone,
       if (preferredDate != null) 'preferredDate': preferredDate,
       if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
-      if (preferredPriest != null) 'preferredPriest': preferredPriest,
-      if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      if (priestId != null) 'priestId': priestId,
+      if (priestName != null) 'priestName': priestName,
+      if (notes != null) 'notes': notes!.map((n) => n.toJson()).toList(),
       if (status != null) 'status': status,
-      if (adminNotes != null) 'adminNotes': adminNotes,
       if (documents != null) 'documents': documents!.map((doc) => doc.toJson()).toList(),
     };
   }
@@ -108,14 +118,15 @@ class BaptismBooking {
     String? contactPhone,
     String? preferredDate,
     String? preferredTimeSlot,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    String? priestName,
+    List<Note>? notes,
     String? status,
-    String? adminNotes,
     int? approvedBy,
     String? approvedAt,
     String? createdAt,
     String? updatedAt,
+    List<Document>? documents,
   }) {
     return BaptismBooking(
       id: id ?? this.id,
@@ -129,14 +140,15 @@ class BaptismBooking {
       contactPhone: contactPhone ?? this.contactPhone,
       preferredDate: preferredDate ?? this.preferredDate,
       preferredTimeSlot: preferredTimeSlot ?? this.preferredTimeSlot,
-      preferredPriest: preferredPriest ?? this.preferredPriest,
-      additionalNotes: additionalNotes ?? this.additionalNotes,
+      priestId: priestId ?? this.priestId,
+      priestName: priestName ?? this.priestName,
+      notes: notes ?? this.notes,
       status: status ?? this.status,
-      adminNotes: adminNotes ?? this.adminNotes,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 }

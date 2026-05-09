@@ -5,29 +5,41 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/parish_provider.dart';
-import '../providers/wedding_provider.dart';
-import '../services/wedding_service.dart';
+import '../providers/eucharist_provider.dart';
+import '../services/eucharist_service.dart';
 import '../services/file_service.dart';
+import 'document_preview_screen.dart';
 import '../models/document.dart';
-import '../models/wedding_booking.dart';
+import '../models/eucharist_booking.dart';
 import '../config/api_config.dart';
 
-class WeddingDetailScreen extends StatefulWidget {
-  final int? weddingId;
+Icon _getDocumentIcon(Document doc) {
+  final filename = (doc.fileName ?? '').toLowerCase();
+  if (filename.endsWith('.pdf')) {
+    return const Icon(Icons.picture_as_pdf, color: Colors.red);
+  } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+    return const Icon(Icons.image, color: Colors.blue);
+  } else {
+    return const Icon(Icons.insert_drive_file, color: Colors.grey);
+  }
+}
+
+class EucharistDetailScreen extends StatefulWidget {
+  final int? eucharistId;
   final bool fromStatusButton;
 
-  const WeddingDetailScreen({
+  const EucharistDetailScreen({
     super.key,
-    required this.weddingId,
+    required this.eucharistId,
     this.fromStatusButton = false,
   });
 
   @override
-  State<WeddingDetailScreen> createState() => _WeddingDetailScreenState();
+  State<EucharistDetailScreen> createState() => _EucharistDetailScreenState();
 }
 
-class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
-  final WeddingService _weddingService = WeddingService();
+class _EucharistDetailScreenState extends State<EucharistDetailScreen> {
+  final EucharistService _eucharistService = EucharistService();
   final _formKey = GlobalKey<FormState>();
 
   bool _isEditMode = false;
@@ -35,23 +47,19 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
   bool _showStatusButtons = true;
   bool _isLoading = true;
 
-  WeddingBooking? _booking;
+  EucharistBooking? _booking;
 
   // Controllers
-  final TextEditingController _groomNameController = TextEditingController();
-  final TextEditingController _brideNameController = TextEditingController();
+  final TextEditingController _communicantNameController = TextEditingController();
+  final TextEditingController _fatherNameController = TextEditingController();
+  final TextEditingController _motherNameController = TextEditingController();
   final TextEditingController _contactController = TextEditingController();
   final TextEditingController _preferredDateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
-  final TextEditingController _seminarScheduleController = TextEditingController();
   final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   // Document files and upload data
-  PlatformFile? _cenomarFile;
-  bool _isUploadingCenomar = false;
-  Map<String, dynamic>? _uploadedCenomarData;
-
   PlatformFile? _birthCertificateFile;
   bool _isUploadingBirth = false;
   Map<String, dynamic>? _uploadedBirthData;
@@ -59,10 +67,6 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
   PlatformFile? _baptismalCertificateFile;
   bool _isUploadingBaptismal = false;
   Map<String, dynamic>? _uploadedBaptismalData;
-
-  PlatformFile? _confirmationCertificateFile;
-  bool _isUploadingConfirmation = false;
-  Map<String, dynamic>? _uploadedConfirmationData;
 
   List<Document> _documents = [];
 
@@ -75,19 +79,19 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
 
   @override
   void dispose() {
-    _groomNameController.dispose();
-    _brideNameController.dispose();
+    _communicantNameController.dispose();
+    _fatherNameController.dispose();
+    _motherNameController.dispose();
     _contactController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _seminarScheduleController.dispose();
     _preferredPriestController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _loadBooking() async {
-    if (widget.weddingId == null || widget.weddingId == 0) {
+    if (widget.eucharistId == null || widget.eucharistId == 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid booking ID')),
@@ -111,112 +115,42 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
       return;
     }
 
-    final result = await _weddingService.getWeddingBookingById(
+    final result = await _eucharistService.getEucharistBookingById(
       token: token,
-      id: widget.weddingId!,
+      id: widget.eucharistId!,
     );
 
     if (mounted && result.success && result.data != null) {
       final booking = result.data!;
+      final status = booking.status?.toLowerCase() ?? 'pending';
+      final isEditable = status == 'pending' || status == 'declined';
       setState(() {
         _booking = booking;
-        _groomNameController.text = booking.groomFullName ?? '';
-        _brideNameController.text = booking.brideFullName ?? '';
+        _communicantNameController.text = booking.communicantName ?? '';
+        _fatherNameController.text = booking.fatherName ?? '';
+        _motherNameController.text = booking.motherName ?? '';
         _contactController.text = booking.contactEmail ?? '';
         _preferredDateController.text = booking.preferredDate?.split('T')[0] ?? '';
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
-        _seminarScheduleController.text = booking.seminarSchedule ?? '';
         _preferredPriestController.text = booking.preferredPriest ?? '';
         _notesController.text = booking.additionalNotes ?? '';
         _documents = booking.documents ?? [];
         _isLoading = false;
       });
-
-      // Auto-enable edit mode if fromStatusButton (with editable status) or user is owner and booking is editable
-      final currentUser = authProvider.currentUser;
-      final isOwner = booking.userId == currentUser?.id;
-      final status = booking.status?.toLowerCase() ?? 'pending';
-      final isEditable = status == 'pending' || status == 'declined';
       if (widget.fromStatusButton && isEditable) {
         setState(() => _isEditMode = true);
-      } else if (!widget.fromStatusButton && isOwner && isEditable) {
-        setState(() => _isEditMode = true);
+      } else {
+        final currentUser = authProvider.currentUser;
+        final isOwner = booking.userId == currentUser?.id;
+        if (!widget.fromStatusButton && isOwner && isEditable) {
+          setState(() => _isEditMode = true);
+        }
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message ?? 'Failed to load booking')),
       );
       Navigator.pop(context);
-    }
-  }
-
-  Future<void> _pickCenomar() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'png'],
-        allowMultiple: false,
-      );
-      if (result != null && mounted) {
-        setState(() {
-          _cenomarFile = result.files.first;
-          _uploadedCenomarData = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting file: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _uploadCenomar() async {
-    if (_cenomarFile == null || widget.weddingId == null) return;
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token;
-    if (token == null) return;
-
-    setState(() => _isUploadingCenomar = true);
-
-    try {
-      final fileService = FileService();
-      final response = await fileService.uploadFile(
-        file: _cenomarFile!,
-        token: token,
-        category: 'wedding',
-        additionalFields: {
-          'documentType': 'cenomar',
-        },
-      );
-
-      if (mounted) {
-        if (response.success && response.data != null) {
-          setState(() {
-            _uploadedCenomarData = response.data!['file'];
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('CENOMAR uploaded successfully')),
-          );
-          await _loadBooking(); // Reload to show updated documents
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.message ?? 'Upload failed')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading file: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingCenomar = false);
-      }
     }
   }
 
@@ -243,7 +177,7 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
   }
 
   Future<void> _uploadBirthCertificate() async {
-    if (_birthCertificateFile == null || widget.weddingId == null) return;
+    if (_birthCertificateFile == null || widget.eucharistId == null) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
@@ -256,7 +190,7 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
       final response = await fileService.uploadFile(
         file: _birthCertificateFile!,
         token: token,
-        category: 'wedding',
+        category: 'eucharist',
         additionalFields: {
           'documentType': 'birth_certificate',
         },
@@ -313,7 +247,7 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
   }
 
   Future<void> _uploadBaptismalCertificate() async {
-    if (_baptismalCertificateFile == null || widget.weddingId == null) return;
+    if (_baptismalCertificateFile == null || widget.eucharistId == null) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
@@ -326,7 +260,7 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
       final response = await fileService.uploadFile(
         file: _baptismalCertificateFile!,
         token: token,
-        category: 'wedding',
+        category: 'eucharist',
         additionalFields: {
           'documentType': 'baptismal_certificate',
         },
@@ -360,98 +294,6 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
     }
   }
 
-  Future<void> _pickConfirmationCertificate() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'png'],
-        allowMultiple: false,
-      );
-      if (result != null && mounted) {
-        setState(() {
-          _confirmationCertificateFile = result.files.first;
-          _uploadedConfirmationData = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting file: $e')),
-        );
-      }
-    }
-  }
-
-  String get _displayStatus {
-    if (_booking == null) return 'PENDING';
-    final status = (_booking?.status?.toUpperCase() ?? 'PENDING');
-    if (status == 'APPROVED') {
-      final scheduledDate = _booking?.preferredDate;
-      if (scheduledDate != null && scheduledDate.isNotEmpty) {
-        try {
-          final now = DateTime.now();
-          final bookingDate = DateTime.parse(scheduledDate);
-          final today = DateTime(now.year, now.month, now.day);
-          final eventDate = DateTime(bookingDate.year, bookingDate.month, bookingDate.day);
-          if (eventDate.isBefore(today)) {
-            return 'COMPLETED';
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-    return status;
-  }
-
-  Future<void> _uploadConfirmationCertificate() async {
-    if (_confirmationCertificateFile == null || widget.weddingId == null) return;
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token;
-    if (token == null) return;
-
-    setState(() => _isUploadingConfirmation = true);
-
-    try {
-      final fileService = FileService();
-      final response = await fileService.uploadFile(
-        file: _confirmationCertificateFile!,
-        token: token,
-        category: 'wedding',
-        additionalFields: {
-          'documentType': 'confirmation_certificate',
-        },
-      );
-
-      if (mounted) {
-        if (response.success && response.data != null) {
-          setState(() {
-            _uploadedConfirmationData = response.data!['file'];
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Confirmation certificate uploaded successfully')),
-          );
-          await _loadBooking();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.message ?? 'Upload failed')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading file: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingConfirmation = false);
-      }
-    }
-  }
-
   Future<void> _saveBooking() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -469,17 +311,16 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
       return;
     }
 
-    final result = await _weddingService.updateWeddingBooking(
+    final result = await _eucharistService.updateEucharistBooking(
       token: token,
-      id: widget.weddingId!,
-      groomFullName: _groomNameController.text.trim(),
-      brideFullName: _brideNameController.text.trim(),
+      id: widget.eucharistId!,
+      communicantName: _communicantNameController.text.trim(),
+      fatherName: _fatherNameController.text.trim(),
+      motherName: _motherNameController.text.trim(),
       contactEmail: _contactController.text.trim(),
+      contactPhone: _contactController.text.trim(),
       preferredDate: _preferredDateController.text.trim(),
       preferredTimeSlot: _preferredTimeController.text.trim(),
-      seminarSchedule: _seminarScheduleController.text.trim().isEmpty
-          ? null
-          : _seminarScheduleController.text.trim(),
       preferredPriest: _preferredPriestController.text.trim().isEmpty
           ? null
           : _preferredPriestController.text.trim(),
@@ -496,7 +337,7 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
           SnackBar(content: Text(result.message ?? 'Booking updated successfully')),
         );
         setState(() => _isEditMode = false);
-        await _loadBooking(); // Reload to show updated data
+        await _loadBooking();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.message ?? 'Failed to update booking')),
@@ -520,9 +361,9 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
       return;
     }
 
-    final result = await _weddingService.updateWeddingStatus(
+    final result = await _eucharistService.updateEucharistStatus(
       token: token,
-      id: widget.weddingId!,
+      id: widget.eucharistId!,
       status: status,
     );
 
@@ -538,43 +379,6 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.message ?? 'Failed to update status')),
         );
-      }
-    }
-  }
-
-  Future<void> _resubmitBooking() async {
-    if (widget.weddingId == null) return;
-
-    setState(() => _isSaving = true);
-
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final token = authProvider.token;
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
-        setState(() => _isSaving = false);
-        return;
-      }
-
-      final result = await _weddingService.resubmitBooking(
-        id: widget.weddingId!,
-        token: token,
-      );
-
-      if (mounted) {
-        setState(() => _isSaving = false);
-
-        if (result.success) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking resubmitted successfully')));
-          await _loadBooking();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to resubmit')));
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -614,9 +418,9 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
       return;
     }
 
-    final result = await _weddingService.deleteWeddingBooking(
+    final result = await _eucharistService.deleteEucharistBooking(
       token: token,
-      id: widget.weddingId!,
+      id: widget.eucharistId!,
     );
 
     setState(() => _isSaving = false);
@@ -666,6 +470,109 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
     }
   }
 
+  Future<void> _deleteDocument(Document doc) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: Text('Are you sure you want to delete "${doc.fileName ?? 'this document'}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isSaving = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+      setState(() => _isSaving = false);
+      return;
+    }
+
+    final result = await _eucharistService.deleteDocument(
+      bookingId: widget.eucharistId!,
+      documentId: doc.id!,
+    );
+
+    setState(() => _isSaving = false);
+
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Document deleted')));
+      await _loadBooking();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to delete document')));
+    }
+  }
+
+  Future<void> _replaceDocument(Document doc) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final newFile = result.files.first;
+    setState(() => _isSaving = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+      setState(() => _isSaving = false);
+      return;
+    }
+
+    final uploadResult = await _eucharistService.attachDocumentToBooking(
+      bookingId: widget.eucharistId!,
+      token: token,
+      file: newFile,
+      documentType: doc.documentType,
+    );
+
+    if (uploadResult.success) {
+      final deleteResult = await _eucharistService.deleteDocument(
+        bookingId: widget.eucharistId!,
+        documentId: doc.id!,
+      );
+      if (!deleteResult.success) {
+        print('Failed to delete old document: ${deleteResult.message}');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uploadResult.message ?? 'Document replaced')));
+      await _loadBooking();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uploadResult.message ?? 'Failed to upload new document')));
+    }
+
+    setState(() => _isSaving = false);
+  }
+
+  String get _displayStatus {
+    if (_booking == null) return 'PENDING';
+    final status = (_booking?.status?.toUpperCase() ?? 'PENDING');
+    if (status == 'APPROVED') {
+      final scheduledDate = _booking?.preferredDate;
+      if (scheduledDate != null && scheduledDate.isNotEmpty) {
+        try {
+          final now = DateTime.now();
+          final bookingDate = DateTime.parse(scheduledDate);
+          final today = DateTime(now.year, now.month, now.day);
+          final eventDate = DateTime(bookingDate.year, bookingDate.month, bookingDate.day);
+          if (eventDate.isBefore(today)) {
+            return 'COMPLETED';
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    return status;
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -681,15 +588,16 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_booking != null
-            ? 'Wedding #${_booking!.id}'
-            : 'Wedding Details'),
+            ? 'First Communion #${_booking!.id}'
+            : 'First Communion Details'),
         actions: [
-          if (_booking != null && !_isEditMode && _showStatusButtons && canEdit)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => setState(() => _isEditMode = true),
-              tooltip: 'Edit',
-            ),
+          if (_booking != null && !_isEditMode && _showStatusButtons)
+            if (canEdit)
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => setState(() => _isEditMode = true),
+                tooltip: 'Edit',
+              ),
         ],
       ),
       body: _isLoading
@@ -770,76 +678,66 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
                             ),
                           ),
                         ),
-                        if (status == 'declined' && isOwner) ...[
-                          Card(
-                            color: Colors.orange.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Your booking was declined. Please make the necessary changes and resubmit.',
-                                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.refresh),
-                                      label: const Text('Resubmit Booking'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      onPressed: _resubmitBooking,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 16),
 
-                        // Groom Name
+                        // Communicant Name
                         if (_isEditMode)
                           TextFormField(
-                            controller: _groomNameController,
+                            controller: _communicantNameController,
                             decoration: const InputDecoration(
-                              labelText: 'Groom Full Name *',
+                              labelText: 'Communicant Name *',
                               border: OutlineInputBorder(),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Groom name is required';
+                                return 'Communicant name is required';
                               }
                               return null;
                             },
                           )
                         else
-                          _buildInfoRow('Groom Name',
-                              _booking!.groomFullName ?? 'Not provided'),
+                          _buildInfoRow('Communicant Name',
+                              _booking!.communicantName ?? 'Not provided'),
                         const SizedBox(height: 16),
 
-                        // Bride Name
+                        // Father's Name
                         if (_isEditMode)
                           TextFormField(
-                            controller: _brideNameController,
+                            controller: _fatherNameController,
                             decoration: const InputDecoration(
-                              labelText: 'Bride Full Name *',
+                              labelText: 'Father\'s Name *',
                               border: OutlineInputBorder(),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Bride name is required';
+                                return 'Father\'s name is required';
                               }
                               return null;
                             },
                           )
                         else
-                          _buildInfoRow('Bride Name',
-                              _booking!.brideFullName ?? 'Not provided'),
+                          _buildInfoRow('Father\'s Name',
+                              _booking!.fatherName ?? 'Not provided'),
+                        const SizedBox(height: 16),
+
+                        // Mother's Name
+                        if (_isEditMode)
+                          TextFormField(
+                            controller: _motherNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Mother\'s Name *',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Mother\'s name is required';
+                              }
+                              return null;
+                            },
+                          )
+                        else
+                          _buildInfoRow('Mother\'s Name',
+                              _booking!.motherName ?? 'Not provided'),
                         const SizedBox(height: 16),
 
                         // Contact Email
@@ -944,20 +842,6 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
                               _booking!.preferredTimeSlot ?? 'Not provided'),
                         const SizedBox(height: 16),
 
-                        // Seminar Schedule
-                        if (_isEditMode)
-                          TextFormField(
-                            controller: _seminarScheduleController,
-                            decoration: const InputDecoration(
-                              labelText: 'Seminar Schedule',
-                              border: OutlineInputBorder(),
-                            ),
-                          )
-                        else
-                          _buildInfoRow('Seminar Schedule',
-                              _booking!.seminarSchedule ?? 'Not provided'),
-                        const SizedBox(height: 16),
-
                         // Preferred Priest
                         if (_isEditMode)
                           TextFormField(
@@ -998,21 +882,6 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // CENOMAR
-                        _buildDocumentSection(
-                          label: 'CENOMAR',
-                          file: _cenomarFile,
-                          uploadedData: _uploadedCenomarData,
-                          documents: _documents
-                              .where((d) => d.documentType == 'cenomar')
-                              .toList(),
-                          isUploading: _isUploadingCenomar,
-                          onPick: _pickCenomar,
-                          onUpload: _uploadCenomar,
-                          canEdit: _isEditMode,
-                        ),
-                        const SizedBox(height: 12),
-
                         // Birth Certificate
                         _buildDocumentSection(
                           label: 'Birth Certificate',
@@ -1040,22 +909,6 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
                           isUploading: _isUploadingBaptismal,
                           onPick: _pickBaptismalCertificate,
                           onUpload: _uploadBaptismalCertificate,
-                          canEdit: _isEditMode,
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Confirmation Certificate
-                        _buildDocumentSection(
-                          label: 'Confirmation Certificate',
-                          file: _confirmationCertificateFile,
-                          uploadedData: _uploadedConfirmationData,
-                          documents: _documents
-                              .where((d) =>
-                                  d.documentType == 'confirmation_certificate')
-                              .toList(),
-                          isUploading: _isUploadingConfirmation,
-                          onPick: _pickConfirmationCertificate,
-                          onUpload: _uploadConfirmationCertificate,
                           canEdit: _isEditMode,
                         ),
                         const SizedBox(height: 32),
@@ -1203,16 +1056,36 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
             if (hasExisting)
               ...documents.map((doc) => ListTile(
                     dense: true,
-                    leading: const Icon(Icons.description,
-                        color: Colors.green, size: 20),
+                    leading: _getDocumentIcon(doc),
                     title: Text(
                       doc.originalFilename ?? 'Document',
                       style: const TextStyle(fontSize: 14),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.open_in_new, size: 20),
-                      onPressed: () => _openDocument(doc),
-                      tooltip: 'Open',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Verification status
+                        if (doc.isVerified == true)
+                          const Icon(Icons.check_circle, color: Colors.green, size: 16)
+                        else if (doc.isVerified == false)
+                          const Icon(Icons.pending, color: Colors.orange, size: 16),
+                        const SizedBox(width: 4),
+                        // Actions menu
+                        PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'view') _openDocument(doc);
+                            if (value == 'delete') _deleteDocument(doc);
+                            if (value == 'replace') _replaceDocument(doc);
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'view', child: Text('View')),
+                            if (canEdit)
+                              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                            if (canEdit)
+                              const PopupMenuItem(value: 'replace', child: Text('Replace')),
+                          ],
+                        ),
+                      ],
                     ),
                   )),
 

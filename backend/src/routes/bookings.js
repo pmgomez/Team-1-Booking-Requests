@@ -143,7 +143,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { status, ...updateData } = req.body;
+    const { status, notes, ...updateData } = req.body;
 
     // Find booking across all types
     const sacramentModels = [
@@ -174,33 +174,48 @@ router.put('/:id', async (req, res) => {
 
     // Check ownership
     if (foundBooking.userId !== userId) {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Not authorized to modify this booking' 
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to modify this booking'
       });
     }
 
     // Check if booking is approved - cannot modify
     if (foundBooking.status === 'approved') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Cannot modify an approved booking. Please contact the parish office for changes.' 
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot modify an approved booking. Please contact the parish office for changes.'
       });
     }
 
     // If status is being updated, parishioners can only set back to 'pending' (resubmit after decline)
     if (status && !['pending', 'declined'].includes(status)) {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'You cannot set this status' 
+      return res.status(403).json({
+        success: false,
+        error: 'You cannot set this status'
       });
     }
 
+    // Handle notes as append-only
+    let finalUpdateData = { ...updateData };
+    if (status) finalUpdateData.status = status;
+
+    if (notes && Array.isArray(notes) && notes.length > 0) {
+      // Get existing notes
+      const existingNotes = foundBooking.notes || [];
+      // Append new notes with author info from the user
+      const newNotes = notes.map(note => ({
+        author: req.user.role === 'parishioner' ? 'parishioner' : 'admin',
+        content: note.content || note,
+        authorId: req.user.userId,
+        timestamp: new Date().toISOString(),
+      }));
+      // Combine
+      finalUpdateData.notes = [...existingNotes, ...newNotes];
+    }
+
     // Update booking
-    await foundBooking.update({
-      ...updateData,
-      ...(status && { status }),
-    });
+    await foundBooking.update(finalUpdateData);
 
     res.json({
       success: true,

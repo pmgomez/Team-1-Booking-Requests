@@ -111,7 +111,7 @@ class MassIntentionService {
     required String massSchedule,
     String? preferredTime,
     String? preferredPriest,
-    String? notes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       final requestBody = {
@@ -123,7 +123,7 @@ class MassIntentionService {
         'massSchedule': massSchedule,
         if (preferredTime != null) 'preferredTime': preferredTime,
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
-        if (notes != null) 'notes': notes,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await _apiClient.postWithAuth(
@@ -172,7 +172,7 @@ class MassIntentionService {
     required String massSchedule,
     String? preferredTime,
     String? preferredPriest,
-    String? notes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       final requestBody = {
@@ -183,7 +183,7 @@ class MassIntentionService {
         'massSchedule': massSchedule,
         if (preferredTime != null) 'preferredTime': preferredTime,
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
-        if (notes != null) 'notes': notes,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await _apiClient.putWithAuth(
@@ -225,13 +225,13 @@ class MassIntentionService {
   Future<ApiResponse<MassIntention>> updateMassIntentionStatus({
     required int id,
     required String status,
-    String? adminNotes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       print('Updating mass intention $id status to: $status');
       final requestBody = {
         'status': status,
-        if (adminNotes != null) 'adminNotes': adminNotes,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await _apiClient.patchWithAuth(

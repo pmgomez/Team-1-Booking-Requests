@@ -25,10 +25,24 @@ class UpdateBookingStatusUseCase {
       throw new Error('Booking not found');
     }
 
-    // Update status and notes
+    // Prepare update data
     const updateData = {};
     if (status) updateData.status = status;
-    if (notes !== undefined) updateData.notes = notes;
+
+    // Handle notes - append if provided
+    if (notes !== undefined && notes !== null) {
+      const existingNotes = booking.notes || [];
+      // If notes is a string (legacy), convert to array with single entry
+      // If notes is an array, append it
+      const newNotesArray = Array.isArray(notes) ? notes : [{
+        author: 'admin',
+        content: notes,
+        authorId: user.userId,
+        timestamp: new Date().toISOString(),
+      }];
+      // Append new notes to existing notes
+      updateData.notes = [...existingNotes, ...newNotesArray];
+    }
 
     return await this.bookingRepository.update(id, updateData);
   }

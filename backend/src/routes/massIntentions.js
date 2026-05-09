@@ -80,9 +80,21 @@ router.put('/:id', [
     .withMessage('Preferred priest name is too long'),
   body('notes')
     .optional()
+    .isArray()
+    .withMessage('Notes must be an array'),
+  body('notes.*.author')
+    .optional()
+    .isIn(['parishioner', 'admin'])
+    .withMessage('Note author must be parishioner or admin'),
+  body('notes.*.content')
+    .optional()
     .trim()
-    .isLength({ max: 1000 })
-    .withMessage('Notes are too long'),
+    .notEmpty()
+    .withMessage('Note content cannot be empty'),
+  body('notes.*.authorId')
+    .optional()
+    .isInt()
+    .withMessage('Note authorId must be an integer'),
   body('status')
     .optional()
     .isIn(['pending', 'approved', 'declined', 'completed'])

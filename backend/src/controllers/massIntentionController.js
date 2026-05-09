@@ -47,7 +47,7 @@ exports.attachDocument = async (req, res, next) => {
         filePath: fileData.path,
         fileUrl: fileData.url,
         fileSize: fileData.size,
-        mimeType: fileData.mimetype,
+        mimeType: fileData.mimeType,
         uploadedBy: req.user.userId,
       });
 

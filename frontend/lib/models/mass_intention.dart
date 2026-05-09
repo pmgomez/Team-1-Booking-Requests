@@ -1,3 +1,5 @@
+import 'note.dart';
+
 class MassIntention {
   final int? id;
   final String? type;
@@ -9,7 +11,7 @@ class MassIntention {
   final String? massSchedule;
   final String? preferredTime;
   final String? preferredPriest;
-  final String? notes;
+  final List<Note>? notes;
   final String? status;
   final int? submittedBy;
   final String? createdAt;
@@ -34,6 +36,13 @@ class MassIntention {
   });
 
   factory MassIntention.fromJson(Map<String, dynamic> json) {
+    List<Note>? notesList;
+    if (json['notes'] != null) {
+      notesList = (json['notes'] as List)
+          .map((note) => Note.fromJson(note as Map<String, dynamic>))
+          .toList();
+    }
+
     return MassIntention(
       id: json['id'],
       type: json['type'],
@@ -45,7 +54,7 @@ class MassIntention {
       massSchedule: json['massSchedule'],
       preferredTime: json['preferredTime'],
       preferredPriest: json['preferredPriest'],
-      notes: json['notes'],
+      notes: notesList,
       status: json['status'] ?? 'pending',
       submittedBy: json['submittedBy'],
       createdAt: json['createdAt'],
@@ -64,7 +73,7 @@ class MassIntention {
       'massSchedule': massSchedule,
       if (preferredTime != null) 'preferredTime': preferredTime,
       if (preferredPriest != null) 'preferredPriest': preferredPriest,
-      if (notes != null) 'notes': notes,
+      if (notes != null) 'notes': notes!.map((n) => n.toJson()).toList(),
       if (status != null) 'status': status,
       'submittedBy': submittedBy,
     };
@@ -80,7 +89,7 @@ class MassIntention {
     String? massSchedule,
     String? preferredTime,
     String? preferredPriest,
-    String? notes,
+    List<Note>? notes,
     String? status,
     int? submittedBy,
     String? createdAt,

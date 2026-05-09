@@ -141,6 +141,14 @@ router.delete(
   adminController.deleteBooking
 );
 
+// ==================== PRIEST MANAGEMENT ====================
+// Get priests by parish ID
+router.get(
+  '/priests',
+  authorizeRoles('diocese_admin', 'diocese_staff', 'parish_admin', 'parish_staff', 'priest', 'parishioner'),
+  adminController.getPriestsByParish
+);
+
 // ==================== MASS INTENTION MANAGEMENT ====================
 // Get all mass intentions (admin view)
 router.get(

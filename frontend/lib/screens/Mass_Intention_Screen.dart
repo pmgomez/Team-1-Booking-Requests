@@ -89,6 +89,18 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
         return date;
       }
 
+      // Prepare notes array if a note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_notesController.text.trim().isNotEmpty) {
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _notesController.text.trim(),
+            'authorId': authProvider.currentUser!.id,
+          }
+        ];
+      }
+
       final success = await massIntentionProvider.createMassIntention(
         type: mapType(_selectedType),
         intentionDetails: _intentionForController.text.trim(),
@@ -97,7 +109,7 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
         parishId: parishProvider.selectedParish!.id!,
         massSchedule: formatDate(_dateController.text),
         preferredTime: _preferredTimeController.text.trim().isEmpty ? null : _preferredTimeController.text.trim(),
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        notes: notesToAdd,
       );
 
       if (success && mounted) {

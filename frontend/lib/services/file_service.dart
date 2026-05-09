@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
 
 import '../config/api_config.dart';
 import '../models/api_response.dart';
@@ -24,7 +26,7 @@ class FileService {
 
   // Upload a file to the server
   Future<ApiResponse<Map<String, dynamic>>> uploadFile({
-    required String filePath,
+    required PlatformFile file,
     required String token,
     String? category,
     Map<String, String>? additionalFields,
@@ -33,8 +35,21 @@ class FileService {
       final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.filesEndpoint}/upload');
       final request = http.MultipartRequest('POST', uri);
 
-      // Attach the file
-      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      if (kIsWeb) {
+        if (file.bytes == null) {
+          throw Exception('File bytes are null on web platform');
+        }
+        request.files.add(http.MultipartFile.fromBytes(
+          'file',
+          file.bytes!,
+          filename: file.name,
+        ));
+      } else {
+        if (file.path == null) {
+          throw Exception('File path is null on mobile platform');
+        }
+        request.files.add(await http.MultipartFile.fromPath('file', file.path!));
+      }
 
       // Add additional fields
       request.fields.addAll({

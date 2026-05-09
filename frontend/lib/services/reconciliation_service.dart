@@ -101,7 +101,7 @@ class ReconciliationService {
     required String contactPhone,
     required String preferredDate,
     required String preferredTimeSlot,
-    String? additionalNotes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       final requestBody = {
@@ -111,7 +111,7 @@ class ReconciliationService {
         'contactPhone': contactPhone,
         'preferredDate': preferredDate,
         'preferredTimeSlot': preferredTimeSlot,
-        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await ApiConfig.postWithAuth(
@@ -237,6 +237,47 @@ class ReconciliationService {
       return ApiResponse<ReconciliationBooking>(
         success: false,
         message: 'Network error updating reconciliation booking',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<ReconciliationBooking>> resubmitBooking({
+    required int id,
+    required String token,
+    List<Map<String, dynamic>>? notes,
+  }) async {
+    try {
+      final requestBody = {
+        'status': 'pending',
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      };
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.reconciliationsEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = ReconciliationBooking.fromJson(data['booking']);
+        return ApiResponse<ReconciliationBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<ReconciliationBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to resubmit booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<ReconciliationBooking>(
+        success: false,
+        message: 'Network error resubmitting booking',
         errors: [e.toString()],
       );
     }

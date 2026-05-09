@@ -85,10 +85,10 @@ const BookingDocument = sequelize.define('BookingDocument', {
     type: DataTypes.DATE,
     allowNull: true,
   },
-  rejectionReason: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
+   rejectionReason: {
+     type: DataTypes.TEXT,
+     allowNull: true,
+   },
 }, {
   tableName: 'booking_documents',
   timestamps: true,

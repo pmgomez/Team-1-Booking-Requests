@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/parish_provider.dart';
 import '../providers/anointing_sick_provider.dart';
+import '../providers/priest_provider.dart';
 
 class AnointingTheSickScreen extends StatefulWidget {
   static const routeName = '/anointing-the-sick';
@@ -28,8 +29,10 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
   final _locationAddressController = TextEditingController();
   final _preferredDateController = TextEditingController();
   final _preferredTimeController = TextEditingController();
-  final _preferredPriestController = TextEditingController();
   final _additionalNotesController = TextEditingController();
+
+  // Priest selection state
+  int? _selectedPriestId;
 
   @override
   void initState() {
@@ -37,6 +40,7 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
 
       parishProvider.loadAllParishes();
 
@@ -49,6 +53,9 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
               .firstOrNull;
           if (userParish != null) {
             parishProvider.selectParish(userParish);
+            if (userParishId != null) {
+              priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
+            }
           }
         });
       }
@@ -73,7 +80,6 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
     _locationAddressController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
     _additionalNotesController.dispose();
     super.dispose();
   }
@@ -83,6 +89,7 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final anointingSickProvider = Provider.of<AnointingSickProvider>(context, listen: false);
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
 
       if (authProvider.currentUser == null) {
         if (!mounted) return;
@@ -118,6 +125,21 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
         return date;
       }
 
+      // Prepare notes array if additional notes were provided
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_additionalNotesController.text.trim().isNotEmpty) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _additionalNotesController.text.trim(),
+            'authorId': currentUser?.id,
+            'timestamp': DateTime.now().toIso8601String(),
+          }
+        ];
+      }
+
       final success = await anointingSickProvider.createAnointingSickBooking(
         token: token,
         parishId: parishProvider.selectedParish!.id!,
@@ -135,12 +157,8 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
         preferredTimeSlot: _preferredTimeController.text.trim().isEmpty
             ? null
             : _preferredTimeController.text.trim(),
-        preferredPriest: _preferredPriestController.text.trim().isEmpty
-            ? null
-            : _preferredPriestController.text.trim(),
-        additionalNotes: _additionalNotesController.text.trim().isEmpty
-            ? null
-            : _additionalNotesController.text.trim(),
+        priestId: _selectedPriestId,
+        notes: notesToAdd,
       );
 
       if (success && mounted) {
@@ -403,12 +421,39 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _preferredPriestController,
-                    decoration: const InputDecoration(
-                      labelText: "Preferred Priest (Optional) - Subject to availability",
-                      border: OutlineInputBorder(),
-                    ),
+                  Consumer2<ParishProvider, PriestProvider>(
+                  builder: (context, parishProvider, priestProvider, _) {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    if (parishProvider.selectedParish != null) {
+                      priestProvider.loadPriestsByParish(
+                        parishProvider.selectedParish!.id!,
+                        token: authProvider.token,
+                      );
+                    }
+                      
+                      return DropdownButtonFormField<int>(
+                        value: _selectedPriestId,
+                        decoration: const InputDecoration(
+                          labelText: "Preferred Priest (Optional) - Subject to availability",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: null,
+                            child: Text("No preference"),
+                          ),
+                          ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                            value: priest.id,
+                            child: Text(priest.fullName),
+                          )),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedPriestId = value;
+                          });
+                        },
+                      );
+                    },
                   ),
                 ],
               ),

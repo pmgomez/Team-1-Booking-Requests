@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/auth_provider.dart';
 import '../providers/eucharist_provider.dart';
 import '../providers/parish_provider.dart';
+import '../providers/priest_provider.dart';
 import '../services/file_service.dart';
 
 class EucharistScreen extends StatefulWidget {
@@ -25,8 +26,10 @@ class _EucharistScreenState extends State<EucharistScreen> {
   final TextEditingController _contactPhoneController = TextEditingController();
   final TextEditingController _preferredDateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
-  final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+
+  // Priest selection state
+  int? _selectedPriestId;
 
   // Document files and upload data
   PlatformFile? _birthCertificateFile;
@@ -43,6 +46,7 @@ class _EucharistScreenState extends State<EucharistScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
 
       parishProvider.loadAllParishes();
 
@@ -55,6 +59,9 @@ class _EucharistScreenState extends State<EucharistScreen> {
               .firstOrNull;
           if (userParish != null) {
             parishProvider.selectParish(userParish);
+            if (userParishId != null) {
+              priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
+            }
           }
         });
       }
@@ -75,7 +82,6 @@ class _EucharistScreenState extends State<EucharistScreen> {
     _contactPhoneController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -125,7 +131,7 @@ class _EucharistScreenState extends State<EucharistScreen> {
     try {
       final fileService = FileService();
       final response = await fileService.uploadFile(
-        filePath: _birthCertificateFile!.path!,
+        file: _birthCertificateFile!,
         token: token,
         category: 'eucharist',
         additionalFields: {
@@ -205,7 +211,7 @@ class _EucharistScreenState extends State<EucharistScreen> {
     try {
       final fileService = FileService();
       final response = await fileService.uploadFile(
-        filePath: _baptismalCertificateFile!.path!,
+        file: _baptismalCertificateFile!,
         token: token,
         category: 'eucharist',
         additionalFields: {
@@ -245,6 +251,7 @@ class _EucharistScreenState extends State<EucharistScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final eucharistProvider = Provider.of<EucharistProvider>(context, listen: false);
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
 
       if (authProvider.currentUser == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -311,6 +318,18 @@ class _EucharistScreenState extends State<EucharistScreen> {
         return date;
       }
 
+      // Prepare notes array if a note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_notesController.text.trim().isNotEmpty) {
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _notesController.text.trim(),
+            'authorId': authProvider.currentUser!.id,
+          }
+        ];
+      }
+
       final success = await eucharistProvider.createEucharistBooking(
         token: token,
         parishId: parishProvider.selectedParish!.id!,
@@ -321,12 +340,8 @@ class _EucharistScreenState extends State<EucharistScreen> {
         contactPhone: _contactPhoneController.text.trim(),
         preferredDate: formatDate(_preferredDateController.text),
         preferredTimeSlot: _preferredTimeController.text.trim(),
-        preferredPriest: _preferredPriestController.text.trim().isEmpty
-            ? null
-            : _preferredPriestController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        priestId: _selectedPriestId,
+        notes: notesToAdd,
         documents: documents,
       );
 
@@ -603,12 +618,39 @@ class _EucharistScreenState extends State<EucharistScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _preferredPriestController,
-                  decoration: const InputDecoration(
-                    labelText: "Preferred Priest (Optional) - Subject to availability",
-                    border: OutlineInputBorder(),
-                  ),
+                Consumer2<ParishProvider, PriestProvider>(
+                  builder: (context, parishProvider, priestProvider, _) {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    if (parishProvider.selectedParish != null) {
+                      priestProvider.loadPriestsByParish(
+                        parishProvider.selectedParish!.id!,
+                        token: authProvider.token,
+                      );
+                    }
+                    
+                    return DropdownButtonFormField<int>(
+                      value: _selectedPriestId,
+                      decoration: const InputDecoration(
+                        labelText: "Preferred Priest (Optional) - Subject to availability",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<int>(
+                          value: null,
+                          child: Text("No preference"),
+                        ),
+                        ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                          value: priest.id,
+                          child: Text(priest.fullName),
+                        )),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedPriestId = value;
+                        });
+                      },
+                    );
+                  },
                 ),
               ]),
 

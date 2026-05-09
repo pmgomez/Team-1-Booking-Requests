@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/auth_provider.dart';
 import '../providers/parish_provider.dart';
 import '../providers/confirmation_provider.dart';
+import '../providers/priest_provider.dart';
 import '../services/file_service.dart';
 
 class ConfirmationBookingScreen extends StatefulWidget {
@@ -36,19 +37,20 @@ class _ConfirmationBookingScreenState
       TextEditingController();
   final TextEditingController _preferredTimeController =
       TextEditingController();
-  final TextEditingController _preferredPriestController =
-      TextEditingController();
   final TextEditingController _notesController =
       TextEditingController();
 
-   // File
-    PlatformFile? _baptismalCertificate;
-    bool _isUploadingBaptismal = false;
-    Map<String, dynamic>? _uploadedBaptismalData;
+  // Priest selection state
+  int? _selectedPriestId;
 
-    PlatformFile? _birthCertificate;
-    bool _isUploadingBirth = false;
-    Map<String, dynamic>? _uploadedBirthData;
+  // File
+  PlatformFile? _baptismalCertificate;
+  bool _isUploadingBaptismal = false;
+  Map<String, dynamic>? _uploadedBaptismalData;
+
+  PlatformFile? _birthCertificate;
+  bool _isUploadingBirth = false;
+  Map<String, dynamic>? _uploadedBirthData;
 
   @override
   void initState() {
@@ -56,6 +58,7 @@ class _ConfirmationBookingScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
 
       parishProvider.loadAllParishes();
 
@@ -67,6 +70,9 @@ class _ConfirmationBookingScreenState
               .firstOrNull;
           if (userParish != null) {
             parishProvider.selectParish(userParish);
+            if (userParishId != null) {
+              priestProvider.loadPriestsByParish(userParishId);
+            }
           }
         });
       }
@@ -83,7 +89,6 @@ class _ConfirmationBookingScreenState
     _contactPhoneController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -136,7 +141,7 @@ class _ConfirmationBookingScreenState
     try {
       final fileService = FileService();
       final response = await fileService.uploadFile(
-        filePath: _baptismalCertificate!.path!,
+        file: _baptismalCertificate!,
         token: token,
         category: 'confirmation',
         additionalFields: {
@@ -224,7 +229,7 @@ class _ConfirmationBookingScreenState
     try {
       final fileService = FileService();
       final response = await fileService.uploadFile(
-        filePath: _birthCertificate!.path!,
+        file: _birthCertificate!,
         token: token,
         category: 'confirmation',
         additionalFields: {
@@ -268,6 +273,7 @@ class _ConfirmationBookingScreenState
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final confirmationProvider = Provider.of<ConfirmationProvider>(context, listen: false);
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
 
       if (authProvider.currentUser == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -305,6 +311,18 @@ class _ConfirmationBookingScreenState
         return date;
       }
 
+      // Prepare notes array if a note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_notesController.text.trim().isNotEmpty) {
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _notesController.text.trim(),
+            'authorId': authProvider.currentUser!.id,
+          }
+        ];
+      }
+
       final success = await confirmationProvider.createConfirmationBooking(
         token: authProvider.token!,
         parishId: parishProvider.selectedParish!.id!,
@@ -317,12 +335,8 @@ class _ConfirmationBookingScreenState
         contactPhone: _contactPhoneController.text.trim(),
         preferredDate: formatDate(_preferredDateController.text),
         preferredTimeSlot: _preferredTimeController.text,
-        preferredPriest: _preferredPriestController.text.trim().isEmpty
-            ? null
-            : _preferredPriestController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        priestId: _selectedPriestId,
+        notes: notesToAdd,
         baptismalCertificate: _uploadedBaptismalData,
         birthCertificate: _uploadedBirthData,
       );
@@ -764,16 +778,39 @@ class _ConfirmationBookingScreenState
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller:
-                        _preferredPriestController,
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          "Preferred Priest (Optional) - Subject to availability",
-                      border:
-                          OutlineInputBorder(),
-                    ),
+                  Consumer2<ParishProvider, PriestProvider>(
+                    builder: (context, parishProvider, priestProvider, _) {
+                      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                      if (parishProvider.selectedParish != null) {
+                        priestProvider.loadPriestsByParish(
+                          parishProvider.selectedParish!.id!,
+                          token: authProvider.token,
+                        );
+                      }
+                      
+                      return DropdownButtonFormField<int>(
+                        value: _selectedPriestId,
+                        decoration: const InputDecoration(
+                          labelText: "Preferred Priest (Optional) - Subject to availability",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: null,
+                            child: Text("No preference"),
+                          ),
+                          ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                            value: priest.id,
+                            child: Text(priest.fullName),
+                          )),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedPriestId = value;
+                          });
+                        },
+                      );
+                    },
                   ),
                 ],
               ),

@@ -42,6 +42,11 @@ exports.register = async (req, res, next) => {
           error: 'Email already registered',
           message: 'An account with this email already exists' 
         });
+      } else if (error.message === 'Invalid parish selected') {
+        return res.status(400).json({ 
+          error: 'Invalid parish',
+          message: 'The selected parish does not exist' 
+        });
       }
       throw error;
     }

@@ -64,9 +64,14 @@ const AnointingOfTheSickBooking = sequelize.define('AnointingOfTheSickBooking', 
     type: DataTypes.STRING(20),
     allowNull: true,
   },
-  preferredPriest: {
-    type: DataTypes.STRING(255),
+  // Optional priest assignment
+  priestId: {
+    type: DataTypes.INTEGER,
     allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id',
+    },
   },
   // Urgency level
   urgency: {
@@ -78,15 +83,11 @@ const AnointingOfTheSickBooking = sequelize.define('AnointingOfTheSickBooking', 
     type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'),
     defaultValue: 'pending',
   },
-  // Additional notes
-  additionalNotes: {
-    type: DataTypes.TEXT,
+  // Notes as JSONB array for conversation history
+  notes: {
+    type: DataTypes.JSONB,
     allowNull: true,
-  },
-  // Admin notes
-  adminNotes: {
-    type: DataTypes.TEXT,
-    allowNull: true,
+    defaultValue: [],
   },
 }, {
   tableName: 'anointing_sick_bookings',

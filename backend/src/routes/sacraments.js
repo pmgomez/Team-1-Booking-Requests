@@ -18,6 +18,7 @@ const createSacramentRoutes = (sacramentType) => {
   const approveBooking = sacramentController.approveSacramentBooking(sacramentType);
   const getAvailableSlots = sacramentController.getAvailableTimeSlots(sacramentType);
   const attachDocument = sacramentController.attachDocument(sacramentType);
+  const deleteDocument = sacramentController.deleteDocument(sacramentType);
 
   return (prefix) => {
     // Public routes for parishioners
@@ -27,6 +28,9 @@ const createSacramentRoutes = (sacramentType) => {
 
     // Attach document to booking (must be before /:id route)
     router.post(`/${prefix}/:id/document`, upload.single('document'), attachDocument);
+
+    // Delete document from booking
+    router.delete(`/${prefix}/:bookingId/document/:documentId`, deleteDocument);
 
     // Get single booking
     router.get(`/${prefix}/:id`, getBooking);

@@ -55,25 +55,26 @@ const WeddingBooking = sequelize.define('WeddingBooking', {
     type: DataTypes.DATE,
     allowNull: true,
   },
-  // Optional priest
-  preferredPriest: {
-    type: DataTypes.STRING(255),
+  // Optional priest assignment
+  priestId: {
+    type: DataTypes.INTEGER,
     allowNull: true,
-  },
-  // Additional information
-  additionalNotes: {
-    type: DataTypes.TEXT,
-    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id',
+    },
   },
   // Status tracking
   status: {
-    type: DataTypes.ENUM('pending', 'approved', 'declined', 'completed', 'rescheduled'),
+    type: DataTypes.ENUM('pending', 'approved', 'declined', 'completed', 'rescheduled', 'cancelled'),
     defaultValue: 'pending',
     allowNull: false,
   },
-  adminNotes: {
-    type: DataTypes.TEXT,
+  // Notes as JSONB array for conversation history
+  notes: {
+    type: DataTypes.JSONB,
     allowNull: true,
+    defaultValue: [],
   },
   approvedBy: {
     type: DataTypes.INTEGER,

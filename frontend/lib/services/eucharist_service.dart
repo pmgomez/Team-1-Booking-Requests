@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
 import '../models/eucharist_booking.dart';
 import '../models/api_response.dart';
 import '../config/api_config.dart';
@@ -68,8 +71,8 @@ class EucharistService {
     required String contactPhone,
     required String preferredDate,
     required String preferredTimeSlot,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    List<Map<String, dynamic>>? notes,
     List<Map<String, dynamic>>? documents,
   }) async {
     try {
@@ -82,8 +85,8 @@ class EucharistService {
         'contactPhone': contactPhone,
         'preferredDate': preferredDate,
         'preferredTimeSlot': preferredTimeSlot,
-        if (preferredPriest != null) 'preferredPriest': preferredPriest,
-        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (priestId != null) 'priestId': priestId,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
         if (documents != null && documents.isNotEmpty) 'documents': documents,
       };
 
@@ -291,13 +294,29 @@ class EucharistService {
   Future<ApiResponse<Map<String, dynamic>>> attachDocumentToBooking({
     required int bookingId,
     required String token,
-    required String filePath,
+    required PlatformFile file,
     String? documentType,
   }) async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.eucharistEndpoint}/$bookingId/document');
       final request = http.MultipartRequest('POST', uri);
-      request.files.add(await http.MultipartFile.fromPath('document', filePath));
+
+      if (kIsWeb) {
+        if (file.bytes == null) {
+          throw Exception('File bytes are null on web platform');
+        }
+        request.files.add(http.MultipartFile.fromBytes(
+          'document',
+          file.bytes!,
+          filename: file.name,
+        ));
+      } else {
+        if (file.path == null) {
+          throw Exception('File path is null on mobile platform');
+        }
+        request.files.add(await http.MultipartFile.fromPath('document', file.path!));
+      }
+
       if (documentType != null) {
         request.fields['documentType'] = documentType;
       }
@@ -325,6 +344,48 @@ class EucharistService {
       return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: 'Network error attaching document',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<EucharistBooking>> resubmitBooking({
+    required int id,
+    required String token,
+    List<Map<String, dynamic>>? notes,
+  }) async {
+    try {
+      final requestBody = {
+        'status': 'pending',
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      };
+
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.eucharistEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = EucharistBooking.fromJson(data['booking']);
+        return ApiResponse<EucharistBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<EucharistBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to resubmit booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<EucharistBooking>(
+        success: false,
+        message: 'Network error resubmitting booking',
         errors: [e.toString()],
       );
     }

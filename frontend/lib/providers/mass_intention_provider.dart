@@ -75,7 +75,7 @@ class MassIntentionProvider extends ChangeNotifier {
     required String massSchedule,
     String? preferredTime,
     String? preferredPriest,
-    String? notes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -114,7 +114,7 @@ class MassIntentionProvider extends ChangeNotifier {
     required String massSchedule,
     String? preferredTime,
     String? preferredPriest,
-    String? notes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -153,7 +153,6 @@ class MassIntentionProvider extends ChangeNotifier {
   Future<bool> updateMassIntentionStatus({
     required int id,
     required String status,
-    String? adminNotes,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -161,7 +160,7 @@ class MassIntentionProvider extends ChangeNotifier {
     final result = await _massIntentionService.updateMassIntentionStatus(
       id: id,
       status: status,
-      adminNotes: adminNotes,
+      notes: null,
     );
 
     if (result.success && result.data != null) {

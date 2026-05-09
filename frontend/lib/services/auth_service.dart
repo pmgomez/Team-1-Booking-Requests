@@ -15,12 +15,16 @@ class AuthService {
   bool _mustChangePassword = false;
   bool get mustChangePassword => _mustChangePassword;
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'profile',
-    ],
-  );
+  GoogleSignIn? _googleSignIn;
+  GoogleSignIn get _googleSignInInstance {
+    _googleSignIn ??= GoogleSignIn(
+      scopes: [
+        'email',
+        'profile',
+      ],
+    );
+    return _googleSignIn!;
+  }
 
   String? _accessToken;
   String? _refreshTokenValue;
@@ -138,7 +142,7 @@ class AuthService {
   Future<ApiResponse<User>> signInWithGoogle() async {
     try {
       // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignInInstance.signIn();
       
       if (googleUser == null) {
         // User canceled the sign-in
@@ -186,7 +190,9 @@ class AuthService {
 
   // Sign out from Google
   Future<void> signOutFromGoogle() async {
-    await _googleSignIn.signOut();
+    if (_googleSignIn != null) {
+      await _googleSignIn!.signOut();
+    }
   }
 
   // Logout user

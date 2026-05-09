@@ -55,8 +55,8 @@ class ConfirmationProvider extends ChangeNotifier {
     required String contactPhone,
     required String preferredDate,
     required String preferredTimeSlot,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    List<Map<String, dynamic>>? notes,
     Map<String, dynamic>? baptismalCertificate,
     Map<String, dynamic>? birthCertificate,
   }) async {
@@ -73,8 +73,8 @@ class ConfirmationProvider extends ChangeNotifier {
       contactPhone: contactPhone,
       preferredDate: preferredDate,
       preferredTimeSlot: preferredTimeSlot,
-      preferredPriest: preferredPriest,
-      additionalNotes: additionalNotes,
+      priestId: priestId,
+      notes: notes,
       baptismalCertificate: baptismalCertificate,
       birthCertificate: birthCertificate,
     );

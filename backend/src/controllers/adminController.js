@@ -994,13 +994,14 @@ const getAllBookings = async (req, res) => {
       { model: MassIntention, type: 'mass_intention', include: [] },
     ];
 
-    for (const { model, type } of bookingTables) {
+    for (const { model, type, include } of bookingTables) {
       // Skip if sacramentType filter is set and doesn't match
       if (sacramentType && sacramentType !== type) continue;
 
       try {
         const bookings = await model.findAll({
           where: bookingWhereClause,
+          include: include,
           limit: parseInt(limit),
           offset: parseInt(offset),
           order: [['createdAt', 'DESC']],
@@ -1106,11 +1107,11 @@ const getBookingById = async (req, res) => {
   }
 };
 
-// Update booking status (approve/reject/reschedule)
+// Update booking status (approve/reject/reschedule) and add notes
 const updateBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, adminNotes } = req.body;
+    const { status, notes } = req.body;
     const requestingUser = req.user;
 
     const bookingTables = [
@@ -1164,9 +1165,16 @@ const updateBookingStatus = async (req, res) => {
       status: status || booking.status,
     };
 
-    // Add admin notes if provided
-    if (adminNotes !== undefined) {
-      updateData.adminNotes = adminNotes;
+    // Handle notes as append-only
+    if (notes && Array.isArray(notes) && notes.length > 0) {
+      const existingNotes = booking.notes || [];
+      const newNotes = notes.map(note => ({
+        author: 'admin',
+        content: note.content || note,
+        authorId: req.user.userId,
+        timestamp: new Date().toISOString(),
+      }));
+      updateData.notes = [...existingNotes, ...newNotes];
     }
 
     // Add approval metadata
@@ -1311,7 +1319,7 @@ const getAllMassIntentions = async (req, res) => {
   }
 };
 
-// Update mass intention status
+// Update mass intention status and add notes
 const updateMassIntentionStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1342,10 +1350,20 @@ const updateMassIntentionStatus = async (req, res) => {
       });
     }
 
-    await intention.update({
-      status: status || intention.status,
-      notes: notes !== undefined ? notes : intention.notes,
-    });
+    // Handle notes as append-only
+    let updateData = { status: status || intention.status };
+    if (notes && Array.isArray(notes) && notes.length > 0) {
+      const existingNotes = intention.notes || [];
+      const newNotes = notes.map(note => ({
+        author: 'admin',
+        content: note.content || note,
+        authorId: req.user.userId,
+        timestamp: new Date().toISOString(),
+      }));
+      updateData.notes = [...existingNotes, ...newNotes];
+    }
+
+    await intention.update(updateData);
 
     res.json({
       message: 'Mass intention updated successfully',
@@ -1354,6 +1372,62 @@ const updateMassIntentionStatus = async (req, res) => {
   } catch (error) {
     console.error('Error updating mass intention:', error);
     res.status(500).json({ error: 'Failed to update mass intention' });
+  }
+};
+
+// Get priests by parish ID
+const getPriestsByParish = async (req, res) => {
+  try {
+    const { parishId } = req.query;
+    const requestingUser = req.user;
+
+    // If no parishId provided, use the user's preferred parish
+    let targetParishId = parishId ? parseInt(parishId) : null;
+    
+    // If still no parishId, try to get from user's preferred parish
+    if (!targetParishId && requestingUser.preferredParishId) {
+      targetParishId = requestingUser.preferredParishId;
+    }
+
+    if (!targetParishId) {
+      return res.status(400).json({
+        error: 'Missing parish ID',
+        message: 'Please select a parish first',
+      });
+    }
+
+    // Apply parish-level restrictions
+    // Parish-level users can only see priests from their own parish
+    if (requestingUser.role === 'parish_admin' || requestingUser.role === 'parish_staff' || requestingUser.role === 'priest') {
+      if (requestingUser.assignedParishId !== targetParishId) {
+        // Check if the user is viewing their own parish
+        if (requestingUser.assignedParishId !== targetParishId) {
+          return res.status(403).json({
+            error: 'Insufficient permissions',
+            message: 'You can only view priests from your assigned parish.',
+          });
+        }
+      }
+    }
+
+    // Get priests assigned to this parish
+    const priests = await User.findAll({
+      where: {
+        role: 'priest',
+        assignedParishId: targetParishId,
+        isActive: true,
+      },
+      attributes: ['id', 'firstName', 'lastName', 'email'],
+      order: [['lastName', 'ASC'], ['firstName', 'ASC']],
+    });
+
+    res.json({
+      message: 'Priests retrieved successfully',
+      priests: priests.map(priest => priest.toSafeObject()),
+    });
+  } catch (error) {
+    console.error('Error getting priests:', error);
+    res.status(500).json({ error: 'Failed to get priests' });
   }
 };
 
@@ -1378,4 +1452,5 @@ module.exports = {
   deleteBooking,
   getAllMassIntentions,
   updateMassIntentionStatus,
+  getPriestsByParish,
 };

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/document.dart';
 import '../models/anointing_sick_booking.dart';
 import '../providers/auth_provider.dart';
@@ -24,7 +25,7 @@ class AnointingSickDetailScreen extends StatefulWidget {
 
 class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
   final AnointingSickService _anointingSickService = AnointingSickService();
-  XFile? _documentFile;
+  PlatformFile? _documentFile;
   bool _isUploading = false;
 
   bool _isEditMode = false;
@@ -105,11 +106,14 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
   }
 
   Future<void> _pickDocumentFile() async {
-    final picker = ImagePicker();
-    final result = await picker.pickImage(source: ImageSource.gallery);
-    if (result != null && mounted) {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'png'],
+      allowMultiple: false,
+    );
+    if (result != null && result.files.isNotEmpty && mounted) {
       setState(() {
-        _documentFile = XFile(result.path, name: result.name, mimeType: result.mimeType);
+        _documentFile = result.files.first;
       });
     }
   }
@@ -126,7 +130,7 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
     final result = await _anointingSickService.attachDocumentToBooking(
       bookingId: widget.anointingSickId!,
       token: token,
-      filePath: _documentFile!.path,
+      file: _documentFile!,
       documentType: 'other',
     );
 
@@ -345,6 +349,43 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
     return 'Approve';
   }
 
+  Future<void> _resubmitBooking() async {
+    if (widget.anointingSickId == null) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      final result = await _anointingSickService.resubmitBooking(
+        id: widget.anointingSickId!,
+        token: token,
+      );
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+
+        if (result.success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking resubmitted successfully')));
+          await _loadBooking();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to resubmit')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -384,6 +425,37 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (status == 'declined' && isOwner) ...[
+              Card(
+                color: Colors.orange.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Your booking was declined. Please make the necessary changes and resubmit.',
+                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Resubmit Booking'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _resubmitBooking,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             _buildSectionTitle('Sick Person Information'),
             _textField('Sick Person\'s Name *', _sickPersonNameController, enabled: _isEditMode),
             _buildSectionTitle('Contact Person'),

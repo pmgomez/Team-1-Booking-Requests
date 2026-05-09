@@ -264,6 +264,43 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
     return 'Approve';
   }
 
+  Future<void> _resubmitBooking() async {
+    if (widget.funeralMassId == null) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      final result = await _funeralMassService.resubmitBooking(
+        id: widget.funeralMassId!,
+        token: token,
+      );
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+
+        if (result.success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking resubmitted successfully')));
+          await _loadBooking();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to resubmit')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -303,6 +340,37 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (status == 'declined' && isOwner) ...[
+              Card(
+                color: Colors.orange.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Your booking was declined. Please make the necessary changes and resubmit.',
+                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Resubmit Booking'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _resubmitBooking,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             _buildSectionTitle('Deceased Information'),
             _textField('Deceased Full Name *', _deceasedNameController, enabled: _isEditMode),
             _textField('Date of Death', _dateOfDeathController, enabled: _isEditMode),

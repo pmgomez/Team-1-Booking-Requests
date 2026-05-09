@@ -72,8 +72,8 @@ class FuneralMassService {
     String? wakeStartDate,
     String? wakeEndDate,
     String? wakeLocation,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       final requestBody = {
@@ -88,8 +88,8 @@ class FuneralMassService {
         if (wakeStartDate != null) 'wakeStartDate': wakeStartDate,
         if (wakeEndDate != null) 'wakeEndDate': wakeEndDate,
         if (wakeLocation != null) 'wakeLocation': wakeLocation,
-        if (preferredPriest != null) 'preferredPriest': preferredPriest,
-        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (priestId != null) 'priestId': priestId,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await ApiConfig.postWithAuth(
@@ -306,6 +306,47 @@ class FuneralMassService {
       return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: 'Network error attaching document',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<FuneralMassBooking>> resubmitBooking({
+    required int id,
+    required String token,
+    List<Map<String, dynamic>>? notes,
+  }) async {
+    try {
+      final requestBody = {
+        'status': 'pending',
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      };
+      final response = await ApiConfig.putWithAuth(
+        '${ApiConfig.funeralMassEndpoint}/$id',
+        token,
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final booking = FuneralMassBooking.fromJson(data['booking']);
+        return ApiResponse<FuneralMassBooking>(
+          success: true,
+          data: booking,
+          message: data['message'],
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<FuneralMassBooking>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to resubmit booking',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<FuneralMassBooking>(
+        success: false,
+        message: 'Network error resubmitting booking',
         errors: [e.toString()],
       );
     }

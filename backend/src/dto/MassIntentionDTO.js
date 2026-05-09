@@ -13,7 +13,7 @@ class MassIntentionDTO {
     massSchedule,
     preferredTime,
     preferredPriest,
-    notes,
+    notes = [],
     dateRequested,
     status,
     submittedBy,
@@ -29,7 +29,7 @@ class MassIntentionDTO {
     this.massSchedule = massSchedule;
     this.preferredTime = preferredTime;
     this.preferredPriest = preferredPriest;
-    this.notes = notes;
+    this.notes = Array.isArray(notes) ? notes : [];
     this.dateRequested = dateRequested;
     this.status = status;
     this.submittedBy = submittedBy;
@@ -49,7 +49,7 @@ class MassIntentionDTO {
       massSchedule: new Date(body.massSchedule),
       preferredTime: body.preferredTime,
       preferredPriest: body.preferredPriest,
-      notes: body.notes,
+      notes: body.notes || [],
     });
   }
 
@@ -58,6 +58,11 @@ class MassIntentionDTO {
    */
   static fromEntity(entity) {
     if (!entity) return null;
+    // Convert notes from JSONB to array, ensuring it's always an array
+    let notes = [];
+    if (entity.notes) {
+      notes = Array.isArray(entity.notes) ? entity.notes : [];
+    }
     return new this({
       id: entity.id,
       type: entity.type,
@@ -68,7 +73,7 @@ class MassIntentionDTO {
       massSchedule: entity.massSchedule,
       preferredTime: entity.preferredTime,
       preferredPriest: entity.preferredPriest,
-      notes: entity.notes,
+      notes: notes,
       dateRequested: entity.dateRequested,
       status: entity.status,
       submittedBy: entity.submittedBy,
@@ -150,6 +155,22 @@ class MassIntentionDTO {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
+  }
+
+  /**
+   * Adds a note to the notes array
+   * @param {string} author - 'parishioner' or 'admin'
+   * @param {string} content - Note content
+   * @param {number} authorId - User ID of the author
+   */
+  addNote(author, content, authorId) {
+    if (!this.notes) this.notes = [];
+    this.notes.push({
+      author,
+      content,
+      authorId,
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 

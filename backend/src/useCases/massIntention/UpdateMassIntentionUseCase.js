@@ -20,21 +20,34 @@ class UpdateMassIntentionUseCase {
    * @returns {Promise<MassIntentionDTO>}
    */
    async execute(id, dto, user) {
-    // Get existing intention
-    const existingIntention = await this.massIntentionRepository.findById(id);
-    if (!existingIntention) {
-      throw new Error('Mass intention not found');
-    }
-
-    // Get allowed fields based on user role (pass full user object for parish check)
-    const allowedFields = this._getAllowedFields(user.role, existingIntention, user);
-
-    // Prepare update data with only allowed fields
-    const updateData = dto.getAllowedUpdates(allowedFields);
-
-    // Perform update
-    return await this.massIntentionRepository.update(id, updateData);
-  }
+     // Get existing intention
+     const existingIntention = await this.massIntentionRepository.findById(id);
+     if (!existingIntention) {
+       throw new Error('Mass intention not found');
+     }
+ 
+     // Get allowed fields based on user role (pass full user object for parish check)
+     const allowedFields = this._getAllowedFields(user.role, existingIntention, user);
+ 
+     // Prepare update data with only allowed fields (excluding notes which are handled separately)
+     const updateData = dto.getAllowedUpdates(allowedFields.filter(f => f !== 'notes'));
+ 
+     // Handle notes separately - append only
+     if (dto.notes && dto.notes.length > 0 && allowedFields.includes('notes')) {
+       // Get existing notes (from the existing intention)
+       const existingNotes = existingIntention.notes || [];
+       // Append new notes with author info
+       const newNotes = dto.notes.map(note => ({
+         ...note,
+         timestamp: note.timestamp || new Date().toISOString(),
+       }));
+       // Set combined notes
+       updateData.notes = [...existingNotes, ...newNotes];
+     }
+ 
+     // Perform update
+     return await this.massIntentionRepository.update(id, updateData);
+   }
 
   /**
    * Gets allowed update fields based on user role
@@ -46,7 +59,7 @@ class UpdateMassIntentionUseCase {
     switch (role) {
       case 'diocese_staff':
       case 'diocese_admin':
-        // Can update everything
+        // Can update everything including notes
         return ['type', 'intentionDetails', 'donorName', 'parishId', 'massSchedule', 'preferredTime', 'preferredPriest', 'notes', 'status'];
 
       case 'parish_admin':

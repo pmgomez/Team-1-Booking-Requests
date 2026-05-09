@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/auth_provider.dart';
 import '../providers/parish_provider.dart';
 import '../providers/baptism_provider.dart';
+import '../providers/priest_provider.dart';
 import '../services/file_service.dart';
 
 class BaptismBookingScreen extends StatefulWidget {
@@ -28,12 +29,14 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
   final TextEditingController _preferredParishController = TextEditingController();
   final TextEditingController _preferredDateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
-  final TextEditingController _preferredPriestController = TextEditingController();
 
-   // File upload state
-   PlatformFile? _birthCertificateFile;
-   bool _isUploadingFile = false;
-   Map<String, dynamic>? _uploadedFileData;
+  // Priest selection state
+  int? _selectedPriestId;
+
+  // File upload state
+  PlatformFile? _birthCertificateFile;
+  bool _isUploadingFile = false;
+  Map<String, dynamic>? _uploadedFileData;
 
   @override
   void initState() {
@@ -42,6 +45,7 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
       
       parishProvider.loadAllParishes();
       
@@ -55,6 +59,9 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
               .firstOrNull;
           if (userParish != null) {
             parishProvider.selectParish(userParish);
+            if (userParishId != null) {
+              priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
+            }
           }
         });
       }
@@ -109,7 +116,7 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
     try {
       final fileService = FileService();
       final response = await fileService.uploadFile(
-        filePath: _birthCertificateFile!.path!,
+        file: _birthCertificateFile!,
         token: token,
         category: 'baptism',
         additionalFields: {
@@ -168,7 +175,6 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
     _preferredParishController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
     super.dispose();
   }
 
@@ -212,6 +218,18 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
         }
       }
 
+      // Prepare notes array if a note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_notesController.text.trim().isNotEmpty) {
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _notesController.text.trim(),
+            'authorId': authProvider.currentUser!.id,
+          }
+        ];
+      }
+
       final success = await baptismProvider.createBaptismBooking(
         parishId: parishProvider.selectedParish!.id!,
         childFullName: _childNameController.text.trim(),
@@ -222,18 +240,14 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
         contactPhone: _contactController.text.trim(),
         preferredDate: formatDate(_preferredDateController.text),
         preferredTimeSlot: _preferredTimeController.text,
-        preferredPriest: _preferredPriestController.text.trim().isEmpty 
-            ? null 
-            : _preferredPriestController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty 
-            ? null 
-            : _notesController.text.trim(),
+        priestId: _selectedPriestId,
+        notes: notesToAdd,
         godparents: godparents.isEmpty ? null : godparents,
         uploadedFile: _uploadedFileData != null ? _uploadedFileData!['filename'] : null,
         filePath: _uploadedFileData != null ? _uploadedFileData!['path'] : null,
         fileUrl: _uploadedFileData != null ? _uploadedFileData!['url'] : null,
         fileSize: _uploadedFileData != null ? _uploadedFileData!['size'] : null,
-        mimeType: _uploadedFileData != null ? _uploadedFileData!['mimetype'] : null,
+        mimeType: _uploadedFileData != null ? _uploadedFileData!['mimeType'] : null,
         documentType: 'birth_certificate',
       );
 
@@ -476,12 +490,37 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _preferredPriestController,
-                  decoration: const InputDecoration(
-                    labelText: "Preferred Priest (Optional) - Subject to availability",
-                    border: OutlineInputBorder(),
-                  ),
+                Consumer2<ParishProvider, PriestProvider>(
+                  builder: (context, parishProvider, priestProvider, _) {
+                    if (parishProvider.selectedParish != null) {
+                      priestProvider.loadPriestsByParish(
+                        parishProvider.selectedParish!.id!,
+                      );
+                    }
+                    
+                    return DropdownButtonFormField<int>(
+                      value: _selectedPriestId,
+                      decoration: const InputDecoration(
+                        labelText: "Preferred Priest (Optional) - Subject to availability",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<int>(
+                          value: null,
+                          child: Text("No preference"),
+                        ),
+                        ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                          value: priest.id,
+                          child: Text(priest.fullName),
+                        )),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedPriestId = value;
+                        });
+                      },
+                    );
+                  },
                 ),
               ]),
 

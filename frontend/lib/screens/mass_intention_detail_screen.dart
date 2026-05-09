@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/mass_intention.dart';
+import '../models/note.dart';
 import '../providers/auth_provider.dart';
 import '../services/mass_intention_service.dart';
+import '../widgets/notes_display.dart';
 
 class MassIntentionDetailScreen extends StatefulWidget {
   final int? massIntentionId;
@@ -31,7 +33,7 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
   final TextEditingController _preferredPriestController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _newNoteController = TextEditingController();
   final TextEditingController _parishNameController = TextEditingController();
 
   String? _selectedType;
@@ -60,9 +62,7 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
       final intention = result.data!;
       final status = intention.status?.toLowerCase() ?? 'pending';
       final isEditable = status == 'pending' || status == 'declined';
-      print('Intention details: type=${intention.type}, details=${intention.intentionDetails}, donor=${intention.donorName}, date=${intention.dateRequested}, time=${intention.preferredTime}');
 
-      // Map backend type to frontend label
       String mapTypeToFrontend(String? backendType) {
         switch (backendType) {
           case 'Thanksgiving':
@@ -83,9 +83,9 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         _dateController.text = intention.dateRequested ?? '';
         _preferredTimeController.text = intention.preferredTime ?? '';
         _preferredPriestController.text = intention.preferredPriest ?? '';
-        _notesController.text = intention.notes ?? '';
         _parishNameController.text = intention.parishName ?? '';
         _selectedType = mapTypeToFrontend(intention.type);
+        // Do not populate _newNoteController - it's for adding new notes
       });
       if (widget.fromStatusButton && isEditable) {
         setState(() => _isEditMode = true);
@@ -134,7 +134,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
       return;
     }
 
-    // Map frontend type to backend enum
     String mapType(String frontendType) {
       switch (frontendType) {
         case 'Thanksgiving':
@@ -154,6 +153,21 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
     setState(() => _isSaving = true);
 
     try {
+      // Prepare notes array if a new note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_newNoteController.text.trim().isNotEmpty) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        final isParishioner = currentUser?.role == 'parishioner';
+        notesToAdd = [
+          {
+            'author': isParishioner ? 'parishioner' : 'admin',
+            'content': _newNoteController.text.trim(),
+            'authorId': currentUser?.id,
+          }
+        ];
+      }
+
       final result = await _massIntentionService.updateMassIntention(
         id: widget.massIntentionId!,
         type: mapType(_selectedType!),
@@ -163,13 +177,14 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         massSchedule: _dateController.text,
         preferredTime: _preferredTimeController.text.trim().isEmpty ? null : _preferredTimeController.text.trim(),
         preferredPriest: _preferredPriestController.text.trim().isEmpty ? null : _preferredPriestController.text.trim(),
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        notes: notesToAdd,
       );
 
       if (mounted) {
         setState(() => _isSaving = false);
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mass intention updated successfully')));
+          _newNoteController.clear();
           _toggleEditMode();
           Navigator.pop(context, true);
         } else {
@@ -209,7 +224,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
     }
   }
 
-  /// Computes the display status based on current status and scheduled date
   String get _displayStatus {
     if (_intention == null) return 'PENDING';
     final status = (_intention?.status?.toUpperCase() ?? 'PENDING');
@@ -219,24 +233,17 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         try {
           final now = DateTime.now();
           final bookingDate = DateTime.parse(scheduledDate);
-          // Compare date only (ignore time)
           final today = DateTime(now.year, now.month, now.day);
           final eventDate = DateTime(bookingDate.year, bookingDate.month, bookingDate.day);
           if (eventDate.isBefore(today)) {
             return 'COMPLETED';
           }
-        } catch (e) {
-          // If date parsing fails, just return the original status
-        }
+        } catch (e) {}
       }
     }
     return status;
   }
 
-  /// Determines if the action button should be enabled
-  /// - For pending status: always true (can approve/decline)
-  /// - For approved status: true only if event date has passed (can mark completed)
-  /// - For other statuses: false
   bool get _canChangeStatus {
     if (_intention == null) return false;
     final status = _intention!.status?.toLowerCase();
@@ -260,7 +267,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
     return false;
   }
 
-  /// Returns the appropriate action button text based on status
   String get _actionButtonText {
     if (_intention == null) return 'Approve';
     final status = _intention!.status?.toLowerCase();
@@ -475,7 +481,17 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
             const SizedBox(height: 12),
             _textField('Preferred Priest (Optional)', _preferredPriestController, enabled: _isEditMode),
             const SizedBox(height: 12),
-            _textField('Additional Notes', _notesController, maxLines: 3, enabled: _isEditMode),
+
+            // Display existing notes
+            if (_intention?.notes != null && _intention!.notes!.isNotEmpty)
+              NotesDisplay(notes: _intention!.notes!),
+
+            // Add new note field (only in edit mode)
+            if (_isEditMode) ...[
+              const SizedBox(height: 16),
+              _buildSectionTitle('Add Note (Optional)'),
+              _textField('Add a note', _newNoteController, maxLines: 3, enabled: true),
+            ],
 
             const SizedBox(height: 16),
 
@@ -493,7 +509,7 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
     _dateController.dispose();
     _preferredTimeController.dispose();
     _preferredPriestController.dispose();
-    _notesController.dispose();
+    _newNoteController.dispose();
     super.dispose();
   }
 }

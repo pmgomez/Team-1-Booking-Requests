@@ -109,8 +109,8 @@ exports.createBaptismBooking = async (req, res) => {
       contactPhone,
       preferredDate,
       preferredTimeSlot,
-      preferredPriest,
-      additionalNotes,
+      priestId,
+      notes, // New notes array format
       parishId,
       godparents = [],
       uploadedFile,
@@ -145,6 +145,19 @@ exports.createBaptismBooking = async (req, res) => {
       return res.status(400).json({ error: limitCheck.error });
     }
 
+    // Convert notes array to JSONB, or handle legacy additionalNotes
+    let notesArray = [];
+    if (notes && Array.isArray(notes) && notes.length > 0) {
+      notesArray = notes;
+    } else if (additionalNotes) {
+      notesArray = [{
+        author: 'parishioner',
+        content: additionalNotes,
+        authorId: req.user.userId,
+        timestamp: new Date().toISOString(),
+      }];
+    }
+
     // Create booking
     const booking = await BaptismBooking.create({
       parishId,
@@ -157,8 +170,8 @@ exports.createBaptismBooking = async (req, res) => {
       contactPhone,
       preferredDate,
       preferredTimeSlot,
-      preferredPriest,
-      additionalNotes,
+      priestId,
+      notes: notesArray,
       status: 'pending',
     });
 
@@ -197,6 +210,15 @@ exports.createBaptismBooking = async (req, res) => {
       console.log(`File ${uploadedFile} uploaded but missing file details in request body`);
     }
 
+    // Get priest name for email if priestId provided
+    let priestName = null;
+    if (priestId) {
+      const priest = await User.findByPk(priestId);
+      if (priest) {
+        priestName = `${priest.firstName} ${priest.lastName}`;
+      }
+    }
+
     // Send confirmation email
     try {
       await emailService.sendNotification(
@@ -213,8 +235,7 @@ exports.createBaptismBooking = async (req, res) => {
             <li>Preferred Time Slot: ${preferredTimeSlot}</li>
             <li>Parish: ${parish.name}</li>
           </ul>
-          <p>Your request is currently under review. We will notify you once it has been confirmed by our parish staff.</p>
-          ${preferredPriest ? '<p><em>Note: Your preferred priest has been noted. Subject to availability. Parish will confirm.</em></p>' : ''}
+          ${priestName ? `<p><em>Note: Your preferred priest is <strong>${priestName}</strong>. Subject to availability. Parish will confirm.</em></p>` : ''}
           <br>
           <p>Best regards,<br>The Parish Team</p>
         `
@@ -231,7 +252,9 @@ exports.createBaptismBooking = async (req, res) => {
         preferredDate: booking.preferredDate,
         preferredTimeSlot: booking.preferredTimeSlot,
         status: booking.status,
-        note: preferredPriest
+        priestId: booking.priestId,
+        priestName: priestName,
+        note: priestName
           ? 'Preferred priest noted. Subject to availability. Parish will confirm.'
           : undefined,
       },
@@ -308,6 +331,15 @@ exports.getBaptismBookings = async (req, res) => {
 exports.getBaptismBooking = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('=== GET BAPTISM BOOKING ===');
+    console.log('Booking ID:', id);
+    console.log('User ID:', req.user.userId, 'Role:', req.user.role);
+
+    // First, check if documents exist in DB for this booking
+    const directDocCount = await BookingDocument.count({
+      where: { bookingId: parseInt(id), bookingType: 'baptism' }
+    });
+    console.log('Direct DB query - Documents count:', directDocCount);
 
     const booking = await BaptismBooking.findByPk(id, {
       include: [
@@ -322,9 +354,25 @@ exports.getBaptismBooking = async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    console.log('Booking found:', booking.id);
+    console.log('Godparents count:', booking.godparents ? booking.godparents.length : 0);
+    console.log('Documents via association:', booking.documents ? booking.documents.length : 0);
+    if (booking.documents && booking.documents.length > 0) {
+      console.log('Documents:', booking.documents.map(d => ({ id: d.id, fileName: d.fileName, fileUrl: d.fileUrl, mimeType: d.mimeType })));
+    } else {
+      console.log('Documents array is empty or null');
+      // Try direct query to see what's in DB
+      const allDocs = await BookingDocument.findAll({ where: { bookingId: parseInt(id), bookingType: 'baptism' } });
+      console.log('All documents from direct query:', allDocs.length);
+      if (allDocs.length > 0) {
+        console.log('Doc details:', allDocs.map(d => ({ id: d.id, fileName: d.fileName, bookingId: d.bookingId, bookingType: d.bookingType })));
+      }
+    }
+
     res.json({ booking });
   } catch (error) {
     console.error('Error fetching baptism booking:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ error: 'Failed to fetch baptism booking' });
   }
 };
@@ -360,11 +408,30 @@ exports.updateBaptismBooking = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to update this booking' });
     }
 
-    // Admins can update status, users can only update notes
+    // Admins can update status, users can only update notes and resubmit after decline
     if (!isAdmin) {
-      delete updateData.status;
       delete updateData.preferredDate;
       delete updateData.preferredTimeSlot;
+      
+      // Allow parishioners to resubmit: change status from 'declined' back to 'pending'
+      if (updateData.status && booking.status === 'declined' && updateData.status === 'pending') {
+        // This is allowed - resubmit after decline
+      } else if (updateData.status) {
+        // Only allow setting back to pending (for resubmit), delete any other status changes
+        delete updateData.status;
+      }
+    }
+
+    // Handle notes: if notes are provided, append to existing notes
+    if (updateData.notes !== undefined) {
+      const existingNotes = booking.notes || [];
+      const newNotes = Array.isArray(updateData.notes) ? updateData.notes : [{
+        author: 'parishioner',
+        content: updateData.notes,
+        authorId: req.user.userId,
+        timestamp: new Date().toISOString(),
+      }];
+      updateData.notes = [...existingNotes, ...newNotes];
     }
 
     console.log('Updating with data:', JSON.stringify(updateData, null, 2));
@@ -387,7 +454,7 @@ exports.updateBaptismBooking = async (req, res) => {
 exports.approveBaptismBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, adminNotes } = req.body;
+    const { status, notes: adminNotes } = req.body;
 
     if (!['approved', 'declined', 'completed'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status. Must be "approved", "declined", or "completed"' });
@@ -398,29 +465,64 @@ exports.approveBaptismBooking = async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    await booking.update({
+    // Prepare update data
+    const updateData = {
       status,
-      adminNotes,
       approvedBy: req.user.userId,
       approvedAt: new Date(),
-    });
+    };
+
+    // If adminNotes provided, append to notes array
+    if (adminNotes) {
+      const existingNotes = booking.notes || [];
+      const newNote = {
+        author: 'admin',
+        content: adminNotes,
+        authorId: req.user.userId,
+        timestamp: new Date().toISOString(),
+      };
+      updateData.notes = [...existingNotes, newNote];
+    }
+
+    await booking.update(updateData);
 
     // Send email notification
     try {
       const user = await User.findByPk(booking.userId);
+      const isDeclined = status === 'declined';
       await emailService.sendNotification(
         booking.contactEmail,
-        `Baptism Booking ${status === 'approved' ? 'Approved' : 'Declined'}`,
+        `Baptism Booking ${isDeclined ? 'Requires Attention' : (status === 'approved' ? 'Approved' : 'Update')}`,
         `
-          <h2>Baptism Booking Update</h2>
+          <h2>Baptism Booking ${isDeclined ? 'Update' : 'Notification'}</h2>
           <p>Dear Parent/Guardian,</p>
-          <p>Your baptism booking request for <strong>${booking.childFullName}</strong> has been ${status}.</p>
-          ${adminNotes ? `<p><strong>Admin Notes:</strong> ${adminNotes}</p>` : ''}
+          <p>Your baptism booking request for <strong>${booking.childFullName}</strong> has been ${isDeclined ? '<span style="color: red;">declined</span>' : status}.</p>
+          ${isDeclined ? `
+            <div style="background-color: #fff3cd; padding: 16px; border-radius: 8px; margin: 16px 0;">
+              <h3 style="margin-top: 0; color: #856404;">⚠️ Your booking requires attention</h3>
+              <p><strong>Reason for decline:</strong></p>
+              ${adminNotes ? `<p style="margin-left: 16px;">${adminNotes}</p>` : '<p><em>No specific reason provided. Please contact the parish office for details.</em></p>'}
+              <p><strong>What to do next:</strong></p>
+              <ol style="margin-left: 16px;">
+                <li>Review the reason above</li>
+                <li>Make the necessary corrections or changes</li>
+                <li>Log in to the booking system and click <strong>"Resubmit Booking"</strong> after making your changes</li>
+              </ol>
+            </div>
+          ` : ''}
           <p><strong>Booking Details:</strong></p>
           <ul>
             <li>Reference Number: ${booking.id}</li>
+            <li>Preferred Date: ${booking.preferredDate ? new Date(booking.preferredDate).toLocaleDateString() : 'Not specified'}</li>
+            <li>Preferred Time Slot: ${booking.preferredTimeSlot || 'Not specified'}</li>
             <li>Status: ${status}</li>
           </ul>
+          ${booking.notes && booking.notes.length > 0 ? `
+            <p><strong>Previous Notes:</strong></p>
+            <ul>
+              ${booking.notes.slice(-3).map(note => `<li><em>${note.author === 'admin' ? 'Parish Admin' : 'You'}:</em> ${note.content}</li>`).join('')}
+            </ul>
+          ` : ''}
           <br>
           <p>Best regards,<br>The Parish Team</p>
         `
@@ -514,7 +616,7 @@ exports.attachDocument = async (req, res) => {
         filePath: fileData.path,
         fileUrl: fileData.url,
         fileSize: fileData.size,
-        mimeType: fileData.mimetype,
+        mimeType: fileData.mimeType,
         uploadedBy: req.user.userId,
       });
 
@@ -637,5 +739,70 @@ exports.getAvailableTimeSlots = async (req, res) => {
   } catch (error) {
     console.error('Error fetching time slots:', error);
     res.status(500).json({ error: 'Failed to fetch available time slots' });
+  }
+};
+
+// Delete document from baptism booking
+exports.deleteDocument = async (req, res) => {
+  try {
+    const { id: bookingId, documentId } = req.params;
+    console.log('=== DELETE DOCUMENT REQUEST ===');
+    console.log('Booking ID:', bookingId);
+    console.log('Document ID:', documentId);
+    console.log('User ID:', req.user.userId);
+    console.log('User Role:', req.user.role);
+
+    // Verify booking exists
+    const booking = await BaptismBooking.findByPk(bookingId);
+    if (!booking) {
+      console.log('Booking not found for ID:', bookingId);
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+    console.log('Booking found:', booking.id, 'User ID:', booking.userId);
+
+    // Check permissions - only owner or admin can delete documents
+    const isOwner = booking.userId === req.user.userId;
+    const isAdmin = ['parish_admin', 'parish_staff', 'diocese_staff', 'diocese_admin'].includes(req.user.role);
+    console.log('Permission check - Is Owner:', isOwner, 'Is Admin:', isAdmin);
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to delete documents' });
+    }
+
+    // Find the document
+    console.log('Searching for document with:', { id: documentId, bookingType: 'baptism', bookingId: parseInt(bookingId) });
+    const document = await BookingDocument.findOne({
+      where: { id: documentId, bookingType: 'baptism', bookingId: parseInt(bookingId) }
+    });
+
+    if (!document) {
+      console.log('Document not found with criteria:', { id: documentId, bookingType: 'baptism', bookingId: parseInt(bookingId) });
+      // Try to find any documents for this booking to help debug
+      const allDocs = await BookingDocument.findAll({ where: { bookingId: parseInt(bookingId), bookingType: 'baptism' } });
+      console.log('All documents for this booking:', allDocs.length);
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    console.log('Document found:', document.id, 'fileName:', document.fileName, 'filePath:', document.filePath);
+
+    // Delete file from storage (Supabase)
+    const fileService = require('../services/fileService');
+    try {
+      console.log('Attempting to delete file from storage:', document.filePath);
+      await fileService.deleteFile(document.filePath);
+      console.log('File deleted from storage successfully');
+    } catch (fileError) {
+      console.error('Error deleting file from storage:', fileError);
+      // Continue to delete DB record even if file deletion fails
+    }
+
+    // Delete document record
+    console.log('Deleting document record from database, id:', document.id);
+    await document.destroy();
+    console.log('Document record deleted successfully');
+
+    res.json({ message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ error: 'Failed to delete document', details: error.message });
   }
 };

@@ -4,9 +4,25 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../models/baptism_booking.dart';
+import '../models/note.dart';
 import '../providers/auth_provider.dart';
+import '../providers/priest_provider.dart';
+import '../providers/parish_provider.dart';
 import '../services/baptism_service.dart';
 import '../config/api_config.dart';
+import 'document_preview_screen.dart';
+import '../widgets/notes_display.dart';
+
+Icon _getDocumentIcon(Document doc) {
+  final filename = (doc.fileName ?? '').toLowerCase();
+  if (filename.endsWith('.pdf')) {
+    return const Icon(Icons.picture_as_pdf, color: Colors.red);
+  } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+    return const Icon(Icons.image, color: Colors.blue);
+  } else {
+    return const Icon(Icons.insert_drive_file, color: Colors.grey);
+  }
+}
 
 class BaptismDetailScreen extends StatefulWidget {
   final int? baptismId;
@@ -26,6 +42,7 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
   final BaptismService _baptismService = BaptismService();
   PlatformFile? _birthCertificateFile;
   bool _isUploading = false;
+  bool _isProcessing = false; // For document operations
 
   bool _isEditMode = false;
   bool _isSaving = false;
@@ -41,8 +58,9 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
   final TextEditingController _contactPhoneController = TextEditingController();
   final TextEditingController _preferredDateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
-  final TextEditingController _preferredPriestController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _newNoteController = TextEditingController();
+  
+  int? _selectedPriestId;
   
   List<Document> _documents = [];
 
@@ -74,11 +92,18 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
         _contactPhoneController.text = booking.contactPhone ?? '';
         _preferredDateController.text = booking.preferredDate?.split('T')[0] ?? '';
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
-        _preferredPriestController.text = booking.preferredPriest ?? '';
-        _notesController.text = booking.additionalNotes ?? '';
+        if (booking.priestId != null) {
+          _selectedPriestId = booking.priestId;
+        }
         _documents = booking.documents ?? [];
         _birthCertificateFile = null;
       });
+      
+      // Debug: Print documents count
+      print('=== BAPTISM DETAIL: Documents loaded: ${_documents.length} ===');
+      for (var doc in _documents) {
+        print('Document: id=${doc.id}, type=${doc.documentType}, fileName=${doc.fileName}, fileUrl=${doc.fileUrl}');
+      }
       if (widget.fromStatusButton && isEditable) {
         setState(() => _isEditMode = true);
       } else {
@@ -124,14 +149,6 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
       return;
     }
 
-    final filePath = _birthCertificateFile!.path;
-    if (filePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to get file path. Please try a different file.')),
-      );
-      return;
-    }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
     if (token == null) {
@@ -146,7 +163,7 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
     final result = await _baptismService.attachDocumentToBooking(
       bookingId: widget.baptismId!,
       token: token,
-      filePath: filePath,
+      file: _birthCertificateFile!,
       documentType: 'birth_certificate',
     );
 
@@ -162,7 +179,7 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
     }
   }
 
-  /// Opens a document by launching its URL
+  /// Opens a document in the preview screen
   Future<void> _openDocument(Document document) async {
     if (document.fileUrl == null || document.fileUrl!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -171,30 +188,98 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
       return;
     }
 
-    try {
-      // Construct full URL by resolving relative path against base URL
-      // The fileUrl stored is like: /uploads/documents/{userId}/baptism/{filename}
-      final baseUri = Uri.parse(ApiConfig.baseUrl);
-      final fileUri = baseUri.resolve(document.fileUrl!);
+    // Navigate to document preview screen
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DocumentPreviewScreen(document: document),
+      ),
+    );
+  }
 
-      // Launch the URL using external application (browser or file viewer)
-      final success = await launchUrl(
-        fileUri,
-        mode: LaunchMode.externalApplication,
-      );
+  Future<void> _deleteDocument(Document doc) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: Text('Are you sure you want to delete "${doc.fileName ?? 'this document'}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
 
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to open document. Please check if the file exists.')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening document: $e')),
-        );
-      }
+    setState(() => _isProcessing = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+      setState(() => _isProcessing = false);
+      return;
     }
+
+    final result = await _baptismService.deleteDocument(
+      bookingId: widget.baptismId!,
+      documentId: doc.id!,
+    );
+
+    setState(() => _isProcessing = false);
+
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Document deleted')));
+      await _loadBooking(); // Refresh
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to delete document')));
+    }
+  }
+
+  Future<void> _replaceDocument(Document doc) async {
+    // Pick new file
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final newFile = result.files.first;
+    setState(() => _isProcessing = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+      setState(() => _isProcessing = false);
+      return;
+    }
+
+    // Upload new document
+    final uploadResult = await _baptismService.attachDocumentToBooking(
+      bookingId: widget.baptismId!,
+      token: token,
+      file: newFile,
+      documentType: doc.documentType,
+    );
+
+    if (uploadResult.success) {
+      // Delete old document
+      final deleteResult = await _baptismService.deleteDocument(
+        bookingId: widget.baptismId!,
+        documentId: doc.id!,
+      );
+      if (!deleteResult.success) {
+        // Log but continue
+        print('Failed to delete old document: ${deleteResult.message}');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uploadResult.message ?? 'Document replaced')));
+      await _loadBooking();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uploadResult.message ?? 'Failed to upload new document')));
+    }
+
+    setState(() => _isProcessing = false);
   }
 
   bool _validateForm() {
@@ -247,6 +332,21 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
     setState(() => _isSaving = true);
 
     try {
+      // Prepare notes array if a new note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_newNoteController.text.trim().isNotEmpty) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        final isParishioner = currentUser?.role == 'parishioner';
+        notesToAdd = [
+          {
+            'author': isParishioner ? 'parishioner' : 'admin',
+            'content': _newNoteController.text.trim(),
+            'authorId': currentUser?.id,
+          }
+        ];
+      }
+
       final result = await _baptismService.updateBaptismBooking(
         id: widget.baptismId!,
         childFullName: _childNameController.text.trim(),
@@ -257,8 +357,8 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
         contactPhone: _contactPhoneController.text.trim(),
         preferredDate: _preferredDateController.text,
         preferredTimeSlot: _preferredTimeController.text,
-        preferredPriest: _preferredPriestController.text.trim().isEmpty ? null : _preferredPriestController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        priestId: _selectedPriestId,
+        notes: notesToAdd,
       );
 
       print('Save result: ${result.success} - ${result.message}');
@@ -268,6 +368,7 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
         
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking updated successfully')));
+          _newNoteController.clear();
           _toggleEditMode();
           Navigator.pop(context, true);
         } else {
@@ -424,8 +525,10 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
           _textField("Parish", TextEditingController(text: _booking?.parishName ?? ''), enabled: false),
           _textField("Preferred Date *", _preferredDateController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectDate),
           _textField("Time Slot *", _preferredTimeController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectTime),
-          _textField("Preferred Priest", _preferredPriestController, enabled: _isEditMode),
-          _textField("Additional Notes", _notesController, maxLines: 3, enabled: _isEditMode),
+          if (_isEditMode)
+            _buildPriestDropdown()
+          else
+            _textField("Preferred Priest", TextEditingController(text: _booking?.priestName ?? ''), enabled: false),
 
           const SizedBox(height: 20),
           Card(
@@ -490,12 +593,35 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
                     ..._documents.map((doc) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
-                        leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                        leading: _getDocumentIcon(doc),
                         title: Text(doc.documentType?.toUpperCase().replaceAll('_', ' ') ?? 'DOCUMENT'),
                         subtitle: Text(doc.fileName ?? 'File'),
-                        trailing: doc.isVerified == true
-                            ? Icon(Icons.check_circle, color: Colors.green[600])
-                            : Icon(Icons.pending, color: Colors.orange),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Verification status
+                            if (doc.isVerified == true)
+                              const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                            else if (doc.isVerified == false)
+                              const Icon(Icons.pending, color: Colors.orange, size: 20),
+                            const SizedBox(width: 8),
+                            // Actions menu
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'view') _openDocument(doc);
+                                if (value == 'delete') _deleteDocument(doc);
+                                if (value == 'replace') _replaceDocument(doc);
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(value: 'view', child: Text('View')),
+                                if (isAdmin || isOwner)
+                                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                if (isAdmin || isOwner)
+                                  const PopupMenuItem(value: 'replace', child: Text('Replace')),
+                              ],
+                            ),
+                          ],
+                        ),
                         onTap: () => _openDocument(doc),
                       ),
                     )),
@@ -505,6 +631,52 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
             ),
           ),
 
+          // Display existing notes in conversation format
+          if (_booking?.notes != null && _booking!.notes!.isNotEmpty)
+            NotesDisplay(notes: _booking!.notes!),
+
+          // Add new note field (only in edit mode)
+          if (_isEditMode) ...[
+            const SizedBox(height: 16),
+            _buildSectionTitle('Add Note (Optional)'),
+            _textField('Add a note', _newNoteController, maxLines: 3, enabled: true),
+          ],
+
+          const SizedBox(height: 20),
+          if (status == 'declined' && isOwner) ...[
+            Card(
+              color: Colors.orange.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Your booking was declined. Please make the necessary changes and resubmit.',
+                      style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: _isSaving
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.refresh),
+                        label: Text(_isSaving ? 'Resubmitting...' : 'Resubmit Booking'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: _isSaving ? null : _resubmitBooking,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          
           _buildStatusSection(isAdmin, widget.baptismId ?? 0),
         ]),
       ),
@@ -533,8 +705,89 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
     );
   }
 
+  Future<void> _resubmitBooking() async {
+    if (widget.baptismId == null) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.currentUser;
+      final isParishioner = currentUser?.role == 'parishioner';
+
+      List<Map<String, dynamic>>? notes;
+      if (_newNoteController.text.trim().isNotEmpty) {
+        notes = [{
+          'author': isParishioner ? 'parishioner' : 'admin',
+          'content': _newNoteController.text.trim(),
+          'authorId': currentUser?.id,
+        }];
+      }
+
+      final result = await _baptismService.resubmitBooking(
+        id: widget.baptismId!,
+        notes: notes,
+      );
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+
+        if (result.success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking resubmitted successfully')));
+          _newNoteController.clear();
+          await _loadBooking();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to resubmit')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   Widget _buildSectionTitle(String title) => Padding(padding: const EdgeInsets.only(top: 16, bottom: 8),
     child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)));
+
+  Widget _buildPriestDropdown() {
+    return Consumer2<ParishProvider, PriestProvider>(
+      builder: (context, parishProvider, priestProvider, _) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final parishId = _booking?.parishId ?? parishProvider.selectedParish?.id;
+        if (parishId != null) {
+          priestProvider.loadPriestsByParish(parishId, token: authProvider.token);
+        }
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DropdownButtonFormField<int>(
+            value: _selectedPriestId,
+            decoration: const InputDecoration(
+              labelText: "Preferred Priest (Optional)",
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem<int>(
+                value: null,
+                child: Text("No preference"),
+              ),
+              ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                value: priest.id,
+                child: Text(priest.fullName),
+              )),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedPriestId = value;
+              });
+            },
+          ),
+        );
+      },
+    );
+  }
 
   void _selectDob() async {
     DateTime? picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(1950), lastDate: DateTime.now());
@@ -642,8 +895,7 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
     _contactPhoneController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
-    _notesController.dispose();
+    _newNoteController.dispose();
     super.dispose();
   }
 }

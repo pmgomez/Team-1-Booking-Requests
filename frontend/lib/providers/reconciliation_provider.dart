@@ -53,7 +53,7 @@ class ReconciliationProvider extends ChangeNotifier {
     required String contactPhone,
     required String preferredDate,
     required String preferredTimeSlot,
-    String? additionalNotes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -66,7 +66,7 @@ class ReconciliationProvider extends ChangeNotifier {
       contactPhone: contactPhone,
       preferredDate: preferredDate,
       preferredTimeSlot: preferredTimeSlot,
-      additionalNotes: additionalNotes,
+      notes: notes,
     );
 
     if (result.success && result.data != null) {

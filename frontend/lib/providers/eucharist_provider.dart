@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../models/eucharist_booking.dart';
 import '../services/eucharist_service.dart';
@@ -55,8 +56,8 @@ class EucharistProvider extends ChangeNotifier {
     required String contactPhone,
     required String preferredDate,
     required String preferredTimeSlot,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    List<Map<String, dynamic>>? notes,
     List<Map<String, dynamic>>? documents,
   }) async {
     _setLoading(true);
@@ -72,8 +73,8 @@ class EucharistProvider extends ChangeNotifier {
       contactPhone: contactPhone,
       preferredDate: preferredDate,
       preferredTimeSlot: preferredTimeSlot,
-      preferredPriest: preferredPriest,
-      additionalNotes: additionalNotes,
+      priestId: priestId,
+      notes: notes,
       documents: documents,
     );
 
@@ -148,7 +149,7 @@ class EucharistProvider extends ChangeNotifier {
   Future<bool> attachDocumentToBooking({
     required int bookingId,
     required String token,
-    required String filePath,
+    required PlatformFile file,
     String? documentType,
   }) async {
     _setLoading(true);
@@ -157,7 +158,7 @@ class EucharistProvider extends ChangeNotifier {
     final result = await _eucharistService.attachDocumentToBooking(
       bookingId: bookingId,
       token: token,
-      filePath: filePath,
+      file: file,
       documentType: documentType,
     );
 

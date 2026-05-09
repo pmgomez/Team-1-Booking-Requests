@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import 'providers/app_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/parish_provider.dart';
+import 'providers/priest_provider.dart';
 import 'providers/baptism_provider.dart';
 import 'providers/wedding_provider.dart';
 import 'providers/confirmation_provider.dart';
@@ -188,6 +190,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ParishProvider()),
+        ChangeNotifierProvider(create: (_) => PriestProvider()),
         ChangeNotifierProvider(create: (_) => BaptismProvider()),
         ChangeNotifierProvider(create: (_) => WeddingProvider()),
         ChangeNotifierProvider(create: (_) => ConfirmationProvider()),

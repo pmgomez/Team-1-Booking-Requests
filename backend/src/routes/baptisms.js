@@ -15,6 +15,9 @@ router.get('/available-slots', baptismController.getAvailableTimeSlots);
 // Attach document to booking (must be before /:id route)
 router.post('/:id/document', upload.single('document'), baptismController.attachDocument);
 
+// Delete document from booking
+router.delete('/:id/document/:documentId', baptismController.deleteDocument);
+
 // Get single booking (owner or admin)
 router.get('/:id', baptismController.getBaptismBooking);
 

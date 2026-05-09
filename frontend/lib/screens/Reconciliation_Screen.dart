@@ -102,6 +102,18 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
         return date;
       }
 
+      // Prepare notes array if a note was added
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_notesController.text.trim().isNotEmpty) {
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _notesController.text.trim(),
+            'authorId': authProvider.currentUser!.id,
+          }
+        ];
+      }
+
       final success = await reconciliationProvider.createReconciliationBooking(
         token: token,
         parishId: parishProvider.selectedParish!.id!,
@@ -110,9 +122,7 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
         contactPhone: _contactPhoneController.text.trim(),
         preferredDate: formatDate(_preferredDateController.text),
         preferredTimeSlot: _preferredTimeController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        notes: notesToAdd,
       );
 
       if (success && mounted) {

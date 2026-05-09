@@ -58,8 +58,8 @@ class FuneralMassProvider extends ChangeNotifier {
     String? wakeStartDate,
     String? wakeEndDate,
     String? wakeLocation,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    List<Map<String, dynamic>>? notes,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);
@@ -77,8 +77,8 @@ class FuneralMassProvider extends ChangeNotifier {
       wakeStartDate: wakeStartDate,
       wakeEndDate: wakeEndDate,
       wakeLocation: wakeLocation,
-      preferredPriest: preferredPriest,
-      additionalNotes: additionalNotes,
+      priestId: priestId,
+      notes: notes,
     );
 
     if (result.success && result.data != null) {

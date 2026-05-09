@@ -6,6 +6,8 @@ import '../providers/parish_provider.dart';
 import '../services/admin_service.dart';
 import '../config/api_config.dart';
 import '../utils/role_helpers.dart';
+import 'document_preview_screen.dart';
+import '../models/document.dart';
 
 class AdminBookingsScreen extends StatefulWidget {
   final String? initialStatus;
@@ -395,6 +397,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
     );
   }
 
+  /// Opens a document in the preview screen
   Future<void> _openDocument(dynamic doc) async {
     final fileUrl = doc['fileUrl'];
     if (fileUrl == null || fileUrl.isEmpty) {
@@ -404,27 +407,21 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
       return;
     }
 
-    try {
-      final baseUri = Uri.parse(ApiConfig.baseUrl);
-      final fileUri = baseUri.resolve(fileUrl);
+    // Convert to Document object
+    final document = Document(
+      id: doc['id'],
+      documentType: doc['documentType'],
+      fileName: doc['fileName'],
+      fileUrl: fileUrl,
+    );
 
-      final success = await launchUrl(
-        fileUri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to open document. Please check if the file exists.')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening document: $e')),
-        );
-      }
-    }
+    // Navigate to document preview screen
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DocumentPreviewScreen(document: document),
+      ),
+    );
   }
 
   Widget _buildDetailRow(String label, String value) {
