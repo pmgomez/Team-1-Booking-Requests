@@ -93,12 +93,13 @@ class ApiClient {
     return response;
   }
 
-  // POST request with auto-refresh
   Future<http.Response> postWithAuth(String endpoint, dynamic body) async {
     String? token = await _getToken();
     if (token == null) {
       throw Exception('No access token. Please login.');
     }
+
+    print('[api_client.postWithAuth] endpoint: $endpoint, body type: ${body.runtimeType}, body: $body');
 
     var response = await ApiConfig.postWithAuth(endpoint, token, body);
 

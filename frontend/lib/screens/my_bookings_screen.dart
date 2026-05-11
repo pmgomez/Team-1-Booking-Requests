@@ -68,6 +68,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         return '/reconciliation-detail';
       case 'wedding':
         return '/wedding-detail';
+      case 'mass_intention':
+        return '/mass-intention-detail';
       case 'eucharist':
         return '/eucharist-detail';
       default:
@@ -130,6 +132,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Future<void> _deleteBooking(int bookingId, String sacramentType) async {
+    print('[my_bookings] _deleteBooking called with id: $bookingId, type: $sacramentType');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -157,7 +160,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
     setState(() => _isLoading = true);
 
-    final result = await _bookingService.deleteUserBooking(token: token, id: bookingId);
+    final result = await _bookingService.deleteUserBooking(token: token, id: bookingId, sacramentType: sacramentType);
 
     if (mounted) {
       setState(() => _isLoading = false);
@@ -348,10 +351,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                         ),
                                       // Spacing before delete if we have a preceding button (edit or view) and delete is present
                                       if (hasEditSupport && canDelete) const SizedBox(width: 8),
-                                      // Delete button for deletable bookings
+                                        // Delete button for deletable bookings
                                       if (canDelete)
                                         ElevatedButton.icon(
-                                          onPressed: () => _deleteBooking(id, sacramentType),
+                                          onPressed: () {
+                                            print('[my_bookings] Delete button pressed - id: $id, sacramentType: $sacramentType');
+                                            _deleteBooking(id, sacramentType);
+                                          },
                                           icon: const Icon(Icons.delete, size: 16),
                                           label: const Text('Delete'),
                                           style: ElevatedButton.styleFrom(

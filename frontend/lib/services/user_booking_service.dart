@@ -127,12 +127,16 @@ class UserBookingService {
   Future<ApiResponse<void>> deleteUserBooking({
     required String token,
     required int id,
+    String? sacramentType,
   }) async {
     try {
-      final response = await ApiConfig.deleteWithAuth(
-        '${ApiConfig.bookingsEndpoint}/$id',
-        token,
-      );
+      String endpoint = '${ApiConfig.bookingsEndpoint}/$id';
+      if (sacramentType != null) {
+        endpoint += '?sacramentType=$sacramentType';
+      }
+      print('[deleteUserBooking] DELETE $endpoint');
+
+      final response = await ApiConfig.deleteWithAuth(endpoint, token);
 
       if (response.statusCode == 200) {
         return ApiResponse<void>(

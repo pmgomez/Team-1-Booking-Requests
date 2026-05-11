@@ -696,20 +696,33 @@ Navigator.pushNamed(
                                         'fromStatusButton': true,
                                       },
                                     );
-                                  } else if (bookingType == 'wedding') {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/wedding-detail',
-                                      arguments: {
-                                        'weddingId': booking['id'] is String
-                                            ? int.tryParse(booking['id'])
-                                            : booking['id'] is int
-                                                ? booking['id']
-                                                : null,
-                                        'fromStatusButton': true,
-                                      },
-                                    );
-                                  } else {
+} else if (bookingType == 'wedding') {
+                                     Navigator.pushNamed(
+                                       context,
+                                       '/wedding-detail',
+                                       arguments: {
+                                         'weddingId': booking['id'] is String
+                                             ? int.tryParse(booking['id'])
+                                             : booking['id'] is int
+                                                 ? booking['id']
+                                                 : null,
+                                         'fromStatusButton': true,
+                                       },
+                                     );
+                                   } else if (bookingType == 'eucharist') {
+                                     Navigator.pushNamed(
+                                       context,
+                                       '/eucharist-detail',
+                                       arguments: {
+                                         'id': booking['id'] is String
+                                             ? int.tryParse(booking['id'])
+                                             : booking['id'] is int
+                                                 ? booking['id']
+                                                 : null,
+                                         'fromStatusButton': true,
+                                       },
+                                     );
+                                   } else {
                                     // Show generic details for other types
                                     _showBookingDetails(booking);
                                   }
@@ -856,6 +869,17 @@ Navigator.pushNamed(
                                                context,
                                                '/wedding-detail',
                                                arguments: {'weddingId': weddingId, 'fromStatusButton': true},
+                                             );
+                                           } else if (bookingType == 'eucharist') {
+                                             final eucharistId = booking['id'] is String
+                                                 ? int.tryParse(booking['id'])
+                                                 : booking['id'] is int
+                                                     ? booking['id']
+                                                     : null;
+                                             Navigator.pushNamed(
+                                               context,
+                                               '/eucharist-detail',
+                                               arguments: {'id': eucharistId, 'fromStatusButton': true},
                                              );
                                            } else {
                                              // Show generic details for other types

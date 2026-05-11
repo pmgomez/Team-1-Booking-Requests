@@ -23,27 +23,44 @@ class CreateMassIntentionUseCase {
    * @returns {Promise<MassIntentionDTO>}
    */
   async execute(dto, user) {
-    // Validate input
     const validation = dto.validate();
     if (!validation.isValid) {
       throw new Error(validation.errors.join(', '));
     }
 
-    // Verify parish exists
     const parish = await this.parishRepository.findById(dto.parishId);
     if (!parish) {
       throw new Error('Parish not found');
     }
 
-    // Set additional fields
-    dto.submittedBy = user.id; // Use user.id from Sequelize model
+    dto.submittedBy = user.id;
     dto.dateRequested = new Date().toISOString().split('T')[0];
     dto.status = 'pending';
 
-    // Create the mass intention
+    // Wrap notes with author info
+    if (dto.notes && dto.notes.length > 0) {
+      console.log('[CreateMassIntentionUseCase] Raw notes from DTO:', JSON.stringify(dto.notes));
+      dto.notes = dto.notes.map(note => {
+        let noteContent = note;
+        if (typeof note === 'object' && note !== null) {
+          console.log('[CreateMassIntentionUseCase] Note object:', note);
+          noteContent = typeof note.content === 'string' ? note.content : JSON.stringify(note);
+          console.log('[CreateMassIntentionUseCase] noteContent after processing:', noteContent);
+        }
+        return {
+          author: user.role === 'parishioner' ? 'parishioner' : 'admin',
+          content: noteContent,
+          authorId: user.id,
+          timestamp: new Date().toISOString(),
+        };
+      });
+      console.log('[CreateMassIntentionUseCase] Final notes:', JSON.stringify(dto.notes));
+    } else {
+      dto.notes = [];
+    }
+
     const createdIntention = await this.massIntentionRepository.create(dto);
 
-    // Send confirmation email (non-blocking)
     this._sendConfirmationEmail(user, createdIntention).catch(err => {
       console.error('Failed to send confirmation email:', err);
     });

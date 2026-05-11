@@ -111,6 +111,7 @@ exports.attachDocument = async (req, res, next) => {
 // Create a new mass intention
 exports.createMassIntention = async (req, res, next) => {
   try {
+    console.log('[createMassIntention] FULL req.body:', JSON.stringify(req.body));
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

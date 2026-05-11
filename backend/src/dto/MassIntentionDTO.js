@@ -41,6 +41,23 @@ class MassIntentionDTO {
    * Creates DTO from request body
    */
   static fromRequest(body) {
+    console.log('[MassIntentionDTO.fromRequest] RECEIVED body.notes:', JSON.stringify(body.notes), 'type:', typeof body.notes);
+    let notes = [];
+    
+    if (body.notes) {
+      console.log('[MassIntentionDTO.fromRequest] body.notes type:', typeof body.notes, 'value:', JSON.stringify(body.notes));
+      if (typeof body.notes === 'string') {
+        try {
+          notes = JSON.parse(body.notes);
+        } catch (e) {
+          notes = [];
+        }
+      } else if (Array.isArray(body.notes)) {
+        notes = body.notes;
+      }
+    }
+    console.log('[MassIntentionDTO.fromRequest] final notes:', JSON.stringify(notes));
+
     return new this({
       type: body.type,
       intentionDetails: body.intentionDetails,
@@ -49,7 +66,7 @@ class MassIntentionDTO {
       massSchedule: new Date(body.massSchedule),
       preferredTime: body.preferredTime,
       preferredPriest: body.preferredPriest,
-      notes: body.notes || [],
+      notes: notes,
     });
   }
 
@@ -58,10 +75,14 @@ class MassIntentionDTO {
    */
   static fromEntity(entity) {
     if (!entity) return null;
-    // Convert notes from JSONB to array, ensuring it's always an array
     let notes = [];
     if (entity.notes) {
-      notes = Array.isArray(entity.notes) ? entity.notes : [];
+      try {
+        const parsed = typeof entity.notes === 'string' ? JSON.parse(entity.notes) : entity.notes;
+        notes = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        notes = [];
+      }
     }
     return new this({
       id: entity.id,

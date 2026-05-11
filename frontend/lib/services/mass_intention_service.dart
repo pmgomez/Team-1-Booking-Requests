@@ -126,6 +126,8 @@ class MassIntentionService {
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
+      print('[MassIntentionService] Request body notes: ${notes != null ? json.encode(notes) : 'null'}');
+
       final response = await _apiClient.postWithAuth(
         ApiConfig.massIntentionsEndpoint,
         json.encode(requestBody),

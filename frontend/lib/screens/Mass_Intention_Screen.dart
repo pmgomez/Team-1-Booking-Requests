@@ -92,13 +92,13 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
       // Prepare notes array if a note was added
       List<Map<String, dynamic>>? notesToAdd;
       if (_notesController.text.trim().isNotEmpty) {
-        notesToAdd = [
-          {
-            'author': 'parishioner',
-            'content': _notesController.text.trim(),
-            'authorId': authProvider.currentUser!.id,
-          }
-        ];
+        final noteMap = {
+          'author': 'parishioner',
+          'content': _notesController.text.trim(),
+          'authorId': authProvider.currentUser!.id,
+        };
+        print('[Mass_Intention_Screen] notesToAdd: $noteMap');
+        notesToAdd = [noteMap];
       }
 
       final success = await massIntentionProvider.createMassIntention(

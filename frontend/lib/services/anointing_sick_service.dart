@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
 import '../models/anointing_sick_booking.dart';
 import '../models/api_response.dart';
 import '../config/api_config.dart';
@@ -214,8 +214,8 @@ class AnointingSickService {
     String? locationAddress,
     String? preferredDate,
     String? preferredTimeSlot,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       final requestBody = <String, dynamic>{
@@ -227,8 +227,8 @@ class AnointingSickService {
         if (locationAddress != null) 'locationAddress': locationAddress,
         if (preferredDate != null) 'preferredDate': preferredDate,
         if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
-        if (preferredPriest != null) 'preferredPriest': preferredPriest,
-        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (priestId != null) 'priestId': priestId,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await ApiConfig.putWithAuth(

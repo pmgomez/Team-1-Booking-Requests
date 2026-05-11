@@ -356,19 +356,11 @@ class _EucharistDetailScreenState extends State<EucharistDetailScreen> {
   }
 
   Future<void> _updateStatus(String status) async {
-    setState(() => _isSaving = true);
+    if (widget.eucharistId == null) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
-    if (token == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login to update status')),
-        );
-      }
-      setState(() => _isSaving = false);
-      return;
-    }
+    if (token == null) return;
 
     final result = await _eucharistService.updateEucharistStatus(
       token: token,
@@ -376,17 +368,15 @@ class _EucharistDetailScreenState extends State<EucharistDetailScreen> {
       status: status,
     );
 
-    setState(() => _isSaving = false);
-
     if (mounted) {
       if (result.success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'Status updated successfully')),
+          SnackBar(content: Text('Booking marked as $status')),
         );
-        await _loadBooking();
+        Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'Failed to update status')),
+          SnackBar(content: Text(result.message ?? 'Failed')),
         );
       }
     }
@@ -618,7 +608,7 @@ class _EucharistDetailScreenState extends State<EucharistDetailScreen> {
                                     ),
                                   ],
                                 ),
-                                if (_showStatusButtons && _isEditMode)
+                                if (!_showStatusButtons && isAdmin)
                                   Row(
                                     children: [
                                       if (_booking!.status?.toLowerCase() ==
@@ -664,13 +654,15 @@ class _EucharistDetailScreenState extends State<EucharistDetailScreen> {
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton.icon(
-                                      icon: const Icon(Icons.refresh),
-                                      label: const Text('Resubmit Booking'),
+                                      icon: _isSaving
+                                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                          : const Icon(Icons.refresh),
+                                      label: Text(_isSaving ? 'Resubmitting...' : 'Resubmit Booking'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.orange,
                                         foregroundColor: Colors.white,
                                       ),
-                                      onPressed: _resubmitBooking,
+                                      onPressed: _isSaving ? null : _resubmitBooking,
                                     ),
                                   ),
                                 ],
