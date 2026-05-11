@@ -1,3 +1,5 @@
+import 'note.dart';
+
 class ReconciliationBooking {
   final int? id;
   final int parishId;
@@ -7,9 +9,8 @@ class ReconciliationBooking {
   final String? contactPhone;
   final String? preferredDate;
   final String? preferredTimeSlot;
-  final String? additionalNotes;
+  final List<Note>? notes;
   final String status;
-  final String? adminNotes;
   final int? approvedBy;
   final String? approvedAt;
   final String? createdAt;
@@ -25,9 +26,8 @@ class ReconciliationBooking {
     this.contactPhone,
     this.preferredDate,
     this.preferredTimeSlot,
-    this.additionalNotes,
+    this.notes,
     this.status = 'pending',
-    this.adminNotes,
     this.approvedBy,
     this.approvedAt,
     this.createdAt,
@@ -36,6 +36,13 @@ class ReconciliationBooking {
   });
 
   factory ReconciliationBooking.fromJson(Map<String, dynamic> json) {
+    List<Note>? notesList;
+    if (json['notes'] != null) {
+      notesList = (json['notes'] as List)
+          .map((note) => Note.fromJson(note as Map<String, dynamic>))
+          .toList();
+    }
+
     return ReconciliationBooking(
       id: json['id'],
       parishId: json['parishId'],
@@ -45,9 +52,8 @@ class ReconciliationBooking {
       contactPhone: json['contactPhone'],
       preferredDate: json['preferredDate'],
       preferredTimeSlot: json['preferredTimeSlot'],
-      additionalNotes: json['additionalNotes'],
+      notes: notesList,
       status: json['status'] ?? 'pending',
-      adminNotes: json['adminNotes'],
       approvedBy: json['approvedBy'],
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
@@ -66,9 +72,8 @@ class ReconciliationBooking {
       if (contactPhone != null) 'contactPhone': contactPhone,
       if (preferredDate != null) 'preferredDate': preferredDate,
       if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
-      if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      if (notes != null) 'notes': notes!.map((n) => n.toJson()).toList(),
       if (status != null) 'status': status,
-      if (adminNotes != null) 'adminNotes': adminNotes,
     };
   }
 
@@ -81,9 +86,8 @@ class ReconciliationBooking {
     String? contactPhone,
     String? preferredDate,
     String? preferredTimeSlot,
-    String? additionalNotes,
+    List<Note>? notes,
     String? status,
-    String? adminNotes,
     int? approvedBy,
     String? approvedAt,
     String? createdAt,
@@ -98,9 +102,8 @@ class ReconciliationBooking {
       contactPhone: contactPhone ?? this.contactPhone,
       preferredDate: preferredDate ?? this.preferredDate,
       preferredTimeSlot: preferredTimeSlot ?? this.preferredTimeSlot,
-      additionalNotes: additionalNotes ?? this.additionalNotes,
+      notes: notes ?? this.notes,
       status: status ?? this.status,
-      adminNotes: adminNotes ?? this.adminNotes,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,

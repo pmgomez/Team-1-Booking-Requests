@@ -1356,12 +1356,18 @@ const updateMassIntentionStatus = async (req, res) => {
     let updateData = { status: status || intention.status };
     if (notes && Array.isArray(notes) && notes.length > 0) {
       const existingNotes = intention.notes || [];
-      const newNotes = notes.map(note => ({
-        author: 'admin',
-        content: note.content || note,
-        authorId: req.user.userId,
-        timestamp: new Date().toISOString(),
-      }));
+      const newNotes = notes.map(note => {
+        let noteContent = note;
+        if (typeof note === 'object' && note !== null) {
+          noteContent = note.content || JSON.stringify(note);
+        }
+        return {
+          author: 'admin',
+          content: noteContent,
+          authorId: req.user.userId,
+          timestamp: new Date().toISOString(),
+        };
+      });
       updateData.notes = [...existingNotes, ...newNotes];
     }
 

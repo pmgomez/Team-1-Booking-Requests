@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
-const { Booking, BaptismBooking, WeddingBooking, ConfirmationBooking, EucharistBooking, ReconciliationBooking, AnointingSickBooking, FuneralMassBooking } = require('../models');
+const { Booking, BaptismBooking, WeddingBooking, ConfirmationBooking, EucharistBooking, ReconciliationBooking, AnointingSickBooking, FuneralMassBooking, MassIntention } = require('../models');
 const { Op } = require('sequelize');
 
 const router = express.Router();
@@ -28,6 +28,7 @@ router.get('/', async (req, res) => {
       reconciliation: ReconciliationBooking,
       anointing_sick: AnointingSickBooking,
       funeral_mass: FuneralMassBooking,
+      mass_intention: MassIntention,
     };
 
     let results = [];
@@ -50,13 +51,16 @@ router.get('/', async (req, res) => {
         sacramentType,
       }));
     } else {
-      // Get all sacrament types for this user
-      const allResults = await Promise.all(
-        Object.entries(sacramentModels).map(async ([type, Model]) => {
+      const modelsWithUserId = [BaptismBooking, WeddingBooking, ConfirmationBooking, EucharistBooking, ReconciliationBooking, AnointingSickBooking, FuneralMassBooking];
+      const allResults = await Promise.all([
+        ...modelsWithUserId.map(async (Model) => {
           const rows = await Model.findAll({ where: whereClause });
-          return rows.map((b) => ({ ...b.toJSON(), sacramentType: type }));
-        })
-      );
+          return rows.map((b) => ({ ...b.toJSON(), sacramentType: Object.entries(sacramentModels).find(([, M]) => M === Model)[0] }));
+        }),
+        MassIntention.findAll({ where: { submittedBy: userId } }).then((rows) =>
+          rows.map((b) => ({ ...b.toJSON(), sacramentType: 'mass_intention' }))
+        ),
+      ]);
       let combined = allResults.flat();
       
       // Sort by created date descending
@@ -104,6 +108,7 @@ router.get('/:id', async (req, res) => {
       { type: 'reconciliation', model: ReconciliationBooking },
       { type: 'anointing_sick', model: AnointingSickBooking },
       { type: 'funeral_mass', model: FuneralMassBooking },
+      { type: 'mass_intention', model: MassIntention },
     ];
 
     for (const { type, model } of sacramentModels) {
@@ -112,8 +117,8 @@ router.get('/:id', async (req, res) => {
       });
       
       if (booking) {
-        // Check ownership
-        if (booking.userId !== userId) {
+        const ownerId = type === 'mass_intention' ? booking.submittedBy : booking.userId;
+        if (ownerId !== userId) {
           return res.status(403).json({ 
             success: false, 
             error: 'Not authorized to view this booking' 
@@ -154,6 +159,7 @@ router.put('/:id', async (req, res) => {
       { type: 'reconciliation', model: ReconciliationBooking },
       { type: 'anointing_sick', model: AnointingSickBooking },
       { type: 'funeral_mass', model: FuneralMassBooking },
+      { type: 'mass_intention', model: MassIntention },
     ];
 
     let foundBooking = null;
@@ -173,7 +179,8 @@ router.put('/:id', async (req, res) => {
     }
 
     // Check ownership
-    if (foundBooking.userId !== userId) {
+    const ownerId = bookingType === 'mass_intention' ? foundBooking.submittedBy : foundBooking.userId;
+    if (ownerId !== userId) {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to modify this booking'
@@ -236,7 +243,51 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { sacramentType } = req.query;
     const userId = req.user.userId;
+
+    // If sacramentType is provided, only search that specific model
+    if (sacramentType) {
+      console.log(`[DELETE /bookings/${id}] Using sacramentType: ${sacramentType}`);
+      const modelMap = {
+        baptism: BaptismBooking,
+        wedding: WeddingBooking,
+        confirmation: ConfirmationBooking,
+        eucharist: EucharistBooking,
+        reconciliation: ReconciliationBooking,
+        anointing_sick: AnointingSickBooking,
+        funeral_mass: FuneralMassBooking,
+        mass_intention: MassIntention,
+      };
+      const Model = modelMap[sacramentType];
+      console.log(`[DELETE] Model found: ${Model ? Model.name : 'undefined'}`);
+      if (!Model) {
+        return res.status(400).json({ success: false, error: 'Invalid sacrament type' });
+      }
+
+      const booking = await Model.findByPk(id);
+      console.log(`[DELETE] Booking from DB:`, booking ? booking.id : null, booking ? `submittedBy: ${booking.submittedBy}, userId: ${booking.userId}` : '');
+      if (!booking) {
+        return res.status(404).json({ success: false, error: 'Booking not found' });
+      }
+
+      const ownerId = sacramentType === 'mass_intention' ? booking.submittedBy : booking.userId;
+      console.log(`[DELETE] ownerId: ${ownerId} === userId: ${userId} ? ${ownerId === userId}`);
+      if (ownerId !== userId) {
+        return res.status(403).json({ success: false, error: 'Not authorized to delete this booking' });
+      }
+
+      if (booking.status === 'approved') {
+        return res.status(400).json({ success: false, error: 'Cannot delete an approved booking. Please contact the parish office.' });
+      }
+
+      if (sacramentType !== 'mass_intention') {
+        await booking.setDocuments([]);
+      }
+      await booking.destroy();
+
+      return res.json({ success: true, message: 'Booking deleted successfully' });
+    }
 
     // Find booking across all types
     const sacramentModels = [
@@ -247,6 +298,7 @@ router.delete('/:id', async (req, res) => {
       { type: 'reconciliation', model: ReconciliationBooking },
       { type: 'anointing_sick', model: AnointingSickBooking },
       { type: 'funeral_mass', model: FuneralMassBooking },
+      { type: 'mass_intention', model: MassIntention },
     ];
 
     let foundBooking = null;
@@ -268,7 +320,8 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Check ownership
-    if (foundBooking.userId !== userId) {
+    const ownerId = bookingType === 'mass_intention' ? foundBooking.submittedBy : foundBooking.userId;
+    if (ownerId !== userId) {
       return res.status(403).json({ 
         success: false, 
         error: 'Not authorized to delete this booking' 
@@ -283,8 +336,10 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Delete associated documents
-    await foundBooking.setDocuments([]);
+    // Delete associated documents (only for booking types that have documents relationship)
+    if (bookingType !== 'mass_intention') {
+      await foundBooking.setDocuments([]);
+    }
     
     // Delete the booking
     await foundBooking.destroy();

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:file_picker/file_picker.dart';
-import '../models/document.dart';
 import '../models/anointing_sick_booking.dart';
 import '../providers/auth_provider.dart';
+import '../providers/priest_provider.dart';
+import '../providers/parish_provider.dart';
 import '../services/anointing_sick_service.dart';
-import '../config/api_config.dart';
+import '../widgets/notes_display.dart';
 
 class AnointingSickDetailScreen extends StatefulWidget {
   final int? anointingSickId;
@@ -25,14 +23,12 @@ class AnointingSickDetailScreen extends StatefulWidget {
 
 class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
   final AnointingSickService _anointingSickService = AnointingSickService();
-  PlatformFile? _documentFile;
-  bool _isUploading = false;
-
   bool _isEditMode = false;
   bool _isSaving = false;
   bool _showStatusButtons = true;
 
   AnointingSickBooking? _booking;
+  int? _selectedPriestId;
 
   final TextEditingController _sickPersonNameController = TextEditingController();
   final TextEditingController _contactPersonNameController = TextEditingController();
@@ -42,10 +38,7 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
   final TextEditingController _locationAddressController = TextEditingController();
   final TextEditingController _preferredDateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
-  final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-
-  List<Document> _documents = [];
 
   @override
   void initState() {
@@ -86,9 +79,9 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
         _locationAddressController.text = booking.locationAddress ?? '';
         _preferredDateController.text = booking.preferredDate?.split('T')[0] ?? '';
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
-        _preferredPriestController.text = booking.preferredPriest ?? '';
-        _notesController.text = booking.additionalNotes ?? '';
-        _documents = booking.documents ?? [];
+        if (booking.priestId != null) {
+          _selectedPriestId = booking.priestId;
+        }
       });
       if (widget.fromStatusButton && isEditable) {
         setState(() => _isEditMode = true);
@@ -102,82 +95,6 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to load booking')));
-    }
-  }
-
-  Future<void> _pickDocumentFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'png'],
-      allowMultiple: false,
-    );
-    if (result != null && result.files.isNotEmpty && mounted) {
-      setState(() {
-        _documentFile = result.files.first;
-      });
-    }
-  }
-
-  Future<void> _uploadDocument() async {
-    if (_documentFile == null || widget.anointingSickId == null) return;
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token;
-    if (token == null) return;
-
-    setState(() => _isUploading = true);
-
-    final result = await _anointingSickService.attachDocumentToBooking(
-      bookingId: widget.anointingSickId!,
-      token: token,
-      file: _documentFile!,
-      documentType: 'other',
-    );
-
-    if (!mounted) return;
-    setState(() => _isUploading = false);
-
-    if (result.success) {
-      await _loadBooking();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document uploaded successfully')));
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Upload failed')));
-      }
-    }
-  }
-
-  /// Opens a document by launching its URL
-  Future<void> _openDocument(Document document) async {
-    if (document.fileUrl == null || document.fileUrl!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Document URL is not available')),
-      );
-      return;
-    }
-
-    try {
-      final baseUri = Uri.parse(ApiConfig.baseUrl);
-      final fileUri = baseUri.resolve(document.fileUrl!);
-
-      final success = await launchUrl(
-        fileUri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to open document. Please check if the file exists.')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening document: $e')),
-        );
-      }
     }
   }
 
@@ -229,6 +146,18 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
     setState(() => _isSaving = true);
 
     try {
+      List<Map<String, dynamic>>? notesToAdd;
+      if (_notesController.text.trim().isNotEmpty) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        notesToAdd = [
+          {
+            'author': 'parishioner',
+            'content': _notesController.text.trim(),
+            'authorId': authProvider.currentUser!.id,
+          }
+        ];
+      }
+
       final result = await _anointingSickService.updateAnointingSickBooking(
         token: token,
         id: widget.anointingSickId!,
@@ -240,8 +169,8 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
         locationAddress: _locationAddressController.text.trim().isEmpty ? null : _locationAddressController.text.trim(),
         preferredDate: _preferredDateController.text,
         preferredTimeSlot: _preferredTimeController.text,
-        preferredPriest: _preferredPriestController.text.trim().isEmpty ? null : _preferredPriestController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        priestId: _selectedPriestId,
+        notes: notesToAdd,
       );
 
       if (mounted) {
@@ -471,62 +400,12 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
             _textField("Parish", TextEditingController(text: _booking?.parishName ?? ''), enabled: false),
             _textField("Preferred Date *", _preferredDateController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectDate),
             _textField("Time Slot *", _preferredTimeController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectTime),
-            _textField("Preferred Priest", _preferredPriestController, enabled: _isEditMode),
-            _textField("Additional Notes", _notesController, maxLines: 3, enabled: _isEditMode),
-
-            const SizedBox(height: 16),
-            Text('Documents', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-            Card(child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (_documents.isNotEmpty) ...[
-                  for (final doc in _documents)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                        title: Text(doc.documentType?.toUpperCase().replaceAll('_', ' ') ?? 'DOCUMENT'),
-                        subtitle: Text(doc.fileName ?? 'File'),
-                        trailing: doc.isVerified == true
-                            ? Icon(Icons.check_circle, color: Colors.green[600])
-                            : Icon(Icons.pending, color: Colors.orange),
-                        onTap: () => _openDocument(doc),
-                      ),
-                    )
-                ] else ...[
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text('No documents uploaded', style: TextStyle(color: Colors.grey)),
-                  )
-                ],
-
-                if (_isEditMode) ...[
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.attach_file),
-                    label: const Text('Select Document'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200]),
-                    onPressed: _pickDocumentFile,
-                  ),
-                  if (_documentFile != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                        Text(_documentFile!.name),
-                        const SizedBox(width: 8),
-                        if (_isUploading)
-                          const CircularProgressIndicator(strokeWidth: 2)
-                        else
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.cloud_upload),
-                            label: const Text('Upload'),
-                            onPressed: _uploadDocument,
-                          ),
-                      ]),
-                    ),
-                ],
-              ]),
-            )),
+            if (_isEditMode)
+              _buildPriestDropdown()
+            else
+              _textField("Preferred Priest", TextEditingController(text: _booking?.priestName ?? ''), enabled: false),
+            NotesDisplay(notes: _booking?.notes),
+            if (_isEditMode) _textField("Add Note", _notesController, maxLines: 3, enabled: _isEditMode),
 
             _buildStatusSection(isAdmin, widget.anointingSickId ?? 0),
           ]),
@@ -559,6 +438,44 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
 
   Widget _buildSectionTitle(String title) => Padding(padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)));
+
+  Widget _buildPriestDropdown() {
+    return Consumer2<ParishProvider, PriestProvider>(
+      builder: (context, parishProvider, priestProvider, _) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final parishId = _booking?.parishId ?? parishProvider.selectedParish?.id;
+        if (parishId != null) {
+          priestProvider.loadPriestsByParish(parishId, token: authProvider.token);
+        }
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DropdownButtonFormField<int>(
+            initialValue: _selectedPriestId,
+            decoration: const InputDecoration(
+              labelText: "Preferred Priest (Optional)",
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem<int>(
+                value: null,
+                child: Text("No preference"),
+              ),
+              ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                value: priest.id,
+                child: Text(priest.fullName),
+              )),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedPriestId = value;
+              });
+            },
+          ),
+        );
+      },
+    );
+  }
 
   void _selectDate() async {
     DateTime? picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now().add(const Duration(days: -7)), lastDate: DateTime.now().add(const Duration(days: 365 * 2)));
@@ -661,7 +578,6 @@ class _AnointingSickDetailScreenState extends State<AnointingSickDetailScreen> {
     _locationAddressController.dispose();
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
     _notesController.dispose();
     super.dispose();
   }

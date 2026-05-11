@@ -1,4 +1,5 @@
 import 'document.dart';
+import 'note.dart';
 
 class AnointingSickBooking {
   final int? id;
@@ -13,10 +14,10 @@ class AnointingSickBooking {
   final String? locationAddress;
   final String? preferredDate;
   final String? preferredTimeSlot;
-  final String? preferredPriest;
-  final String? additionalNotes;
+  final int? priestId;
+  final String? priestName;
+  final List<Note>? notes;
   final String status;
-  final String? adminNotes;
   final int? approvedBy;
   final String? approvedAt;
   final String? createdAt;
@@ -36,10 +37,10 @@ class AnointingSickBooking {
     this.locationAddress,
     this.preferredDate,
     this.preferredTimeSlot,
-    this.preferredPriest,
-    this.additionalNotes,
+    this.priestId,
+    this.priestName,
+    this.notes,
     this.status = 'pending',
-    this.adminNotes,
     this.approvedBy,
     this.approvedAt,
     this.createdAt,
@@ -48,6 +49,13 @@ class AnointingSickBooking {
   });
 
   factory AnointingSickBooking.fromJson(Map<String, dynamic> json) {
+    List<Note>? notesList;
+    if (json['notes'] != null) {
+      notesList = (json['notes'] as List)
+          .map((note) => Note.fromJson(note as Map<String, dynamic>))
+          .toList();
+    }
+
     return AnointingSickBooking(
       id: json['id'],
       parishId: json['parishId'],
@@ -61,10 +69,12 @@ class AnointingSickBooking {
       locationAddress: json['locationAddress'],
       preferredDate: json['preferredDate'],
       preferredTimeSlot: json['preferredTimeSlot'],
-      preferredPriest: json['preferredPriest'],
-      additionalNotes: json['additionalNotes'],
+      priestId: json['priestId'],
+      priestName: json['priest']?['firstName'] != null
+          ? '${json['priest']['firstName']} ${json['priest']['lastName']}'
+          : json['priestName'],
+      notes: notesList,
       status: json['status'] ?? 'pending',
-      adminNotes: json['adminNotes'],
       approvedBy: json['approvedBy'],
       approvedAt: json['approvedAt'],
       createdAt: json['createdAt'],
@@ -88,10 +98,9 @@ class AnointingSickBooking {
       if (locationAddress != null) 'locationAddress': locationAddress,
       if (preferredDate != null) 'preferredDate': preferredDate,
       if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
-      if (preferredPriest != null) 'preferredPriest': preferredPriest,
-      if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      if (priestId != null) 'priestId': priestId,
+      if (notes != null) 'notes': notes!.map((n) => n.toJson()).toList(),
       if (status != null) 'status': status,
-      if (adminNotes != null) 'adminNotes': adminNotes,
     };
   }
 
@@ -108,10 +117,10 @@ class AnointingSickBooking {
     String? locationAddress,
     String? preferredDate,
     String? preferredTimeSlot,
-    String? preferredPriest,
-    String? additionalNotes,
+    int? priestId,
+    String? priestName,
+    List<Note>? notes,
     String? status,
-    String? adminNotes,
     int? approvedBy,
     String? approvedAt,
     String? createdAt,
@@ -131,10 +140,10 @@ class AnointingSickBooking {
       locationAddress: locationAddress ?? this.locationAddress,
       preferredDate: preferredDate ?? this.preferredDate,
       preferredTimeSlot: preferredTimeSlot ?? this.preferredTimeSlot,
-      preferredPriest: preferredPriest ?? this.preferredPriest,
-      additionalNotes: additionalNotes ?? this.additionalNotes,
+      priestId: priestId ?? this.priestId,
+      priestName: priestName ?? this.priestName,
+      notes: notes ?? this.notes,
       status: status ?? this.status,
-      adminNotes: adminNotes ?? this.adminNotes,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt ?? this.createdAt,

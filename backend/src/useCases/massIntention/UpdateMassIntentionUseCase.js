@@ -32,18 +32,23 @@ class UpdateMassIntentionUseCase {
      // Prepare update data with only allowed fields (excluding notes which are handled separately)
      const updateData = dto.getAllowedUpdates(allowedFields.filter(f => f !== 'notes'));
  
-     // Handle notes separately - append only
-     if (dto.notes && dto.notes.length > 0 && allowedFields.includes('notes')) {
-       // Get existing notes (from the existing intention)
-       const existingNotes = existingIntention.notes || [];
-       // Append new notes with author info
-       const newNotes = dto.notes.map(note => ({
-         ...note,
-         timestamp: note.timestamp || new Date().toISOString(),
-       }));
-       // Set combined notes
-       updateData.notes = [...existingNotes, ...newNotes];
-     }
+      // Handle notes separately - append only
+      if (dto.notes && dto.notes.length > 0 && allowedFields.includes('notes')) {
+        const existingNotes = existingIntention.notes || [];
+        const newNotes = dto.notes.map(note => {
+          let noteContent = note;
+          if (typeof note === 'object' && note !== null) {
+            noteContent = note.content || JSON.stringify(note);
+          }
+          return {
+            author: user.role === 'parishioner' ? 'parishioner' : 'admin',
+            content: noteContent,
+            authorId: user.userId,
+            timestamp: new Date().toISOString(),
+          };
+        });
+        updateData.notes = [...existingNotes, ...newNotes];
+      }
  
      // Perform update
      return await this.massIntentionRepository.update(id, updateData);

@@ -292,18 +292,18 @@ class _EucharistScreenState extends State<EucharistScreen> {
       // Build documents array
       final documents = [
         {
-          'uploadedFile': _uploadedBirthData!['fileName'],
-          'filePath': _uploadedBirthData!['filePath'],
-          'fileUrl': _uploadedBirthData!['fileUrl'],
-          'fileSize': _uploadedBirthData!['fileSize'],
+          'uploadedFile': _uploadedBirthData!['filename'],
+          'filePath': _uploadedBirthData!['path'],
+          'fileUrl': _uploadedBirthData!['url'],
+          'fileSize': _uploadedBirthData!['size'],
           'mimeType': _uploadedBirthData!['mimeType'],
           'documentType': 'birth_certificate',
         },
         {
-          'uploadedFile': _uploadedBaptismalData!['fileName'],
-          'filePath': _uploadedBaptismalData!['filePath'],
-          'fileUrl': _uploadedBaptismalData!['fileUrl'],
-          'fileSize': _uploadedBaptismalData!['fileSize'],
+          'uploadedFile': _uploadedBaptismalData!['filename'],
+          'filePath': _uploadedBaptismalData!['path'],
+          'fileUrl': _uploadedBaptismalData!['url'],
+          'fileSize': _uploadedBaptismalData!['size'],
           'mimeType': _uploadedBaptismalData!['mimeType'],
           'documentType': 'baptismal_certificate',
         },

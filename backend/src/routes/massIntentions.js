@@ -38,8 +38,7 @@ router.post('/', [
     .withMessage('Preferred priest name is too long'),
   body('notes')
     .optional()
-    .trim()
-    .isLength({ max: 1000 })
+    .isLength({ max: 10000 })
     .withMessage('Notes are too long'),
 ], massIntentionController.createMassIntention);
 

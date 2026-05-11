@@ -38,9 +38,14 @@ class MassIntention {
   factory MassIntention.fromJson(Map<String, dynamic> json) {
     List<Note>? notesList;
     if (json['notes'] != null) {
-      notesList = (json['notes'] as List)
-          .map((note) => Note.fromJson(note as Map<String, dynamic>))
-          .toList();
+      notesList = (json['notes'] as List).map((note) {
+        if (note is Map<String, dynamic>) {
+          return Note.fromJson(note);
+        } else if (note is String) {
+          return Note(content: note);
+        }
+        return Note(content: note.toString());
+      }).toList();
     }
 
     return MassIntention(

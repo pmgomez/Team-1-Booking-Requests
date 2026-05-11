@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/reconciliation_service.dart';
 import '../models/reconciliation_booking.dart';
+import '../widgets/notes_display.dart';
 
 class ReconciliationDetailScreen extends StatefulWidget {
   final int? reconciliationId;
@@ -69,7 +70,6 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
         _contactPhoneController.text = booking.contactPhone ?? '';
         _preferredDateController.text = booking.preferredDate?.split('T')[0] ?? '';
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
-        _notesController.text = booking.additionalNotes ?? '';
       });
       if (widget.fromStatusButton && isEditable) {
         setState(() => _isEditMode = true);
@@ -125,6 +125,18 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
 
     setState(() => _isSaving = true);
 
+    List<Map<String, dynamic>>? notesToAdd;
+    if (_notesController.text.trim().isNotEmpty) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      notesToAdd = [
+        {
+          'author': 'parishioner',
+          'content': _notesController.text.trim(),
+          'authorId': authProvider.currentUser!.id,
+        }
+      ];
+    }
+
     final result = await _reconciliationService.updateReconciliationBooking(
       token: token,
       id: widget.reconciliationId!,
@@ -133,7 +145,7 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
       contactPhone: _contactPhoneController.text.trim(),
       preferredDate: _preferredDateController.text,
       preferredTimeSlot: _preferredTimeController.text,
-      additionalNotes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      notes: notesToAdd,
     );
 
     setState(() => _isSaving = false);
@@ -344,7 +356,8 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
             _textField("Parish", TextEditingController(text: _booking?.parishName ?? ''), enabled: false),
             _textField("Preferred Date *", _preferredDateController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectDate),
             _textField("Time Slot *", _preferredTimeController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectTime),
-            _textField("Additional Notes", _notesController, maxLines: 3, enabled: _isEditMode),
+            NotesDisplay(notes: _booking?.notes),
+            if (_isEditMode) _textField("Add Note", _notesController, maxLines: 3, enabled: _isEditMode),
 
             const SizedBox(height: 16),
             _buildStatusSection(isAdmin, widget.reconciliationId ?? 0),

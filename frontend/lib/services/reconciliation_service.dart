@@ -198,7 +198,7 @@ class ReconciliationService {
     required String contactPhone,
     required String preferredDate,
     required String preferredTimeSlot,
-    String? additionalNotes,
+    List<Map<String, dynamic>>? notes,
   }) async {
     try {
       final requestBody = {
@@ -207,7 +207,7 @@ class ReconciliationService {
         'contactPhone': contactPhone,
         'preferredDate': preferredDate,
         'preferredTimeSlot': preferredTimeSlot,
-        if (additionalNotes != null) 'additionalNotes': additionalNotes,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       };
 
       final response = await ApiConfig.putWithAuth(
