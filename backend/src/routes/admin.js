@@ -149,6 +149,13 @@ router.get(
   adminController.getPriestsByParish
 );
 
+// Get priest's schedule (bookings assigned to the priest)
+router.get(
+  '/priest-schedule',
+  authorizeRoles('priest'),
+  adminController.getPriestSchedule
+);
+
 // ==================== MASS INTENTION MANAGEMENT ====================
 // Get all mass intentions (admin view)
 router.get(

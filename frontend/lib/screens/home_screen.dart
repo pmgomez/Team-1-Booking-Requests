@@ -65,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userRole = authProvider.currentUser?.role ?? Roles.parishioner;
-    if (!Roles.isAdmin(userRole)) {
+    if (!Roles.isAdmin(userRole) && !Roles.isPriest(userRole)) {
       _loadBookingStats();
     } else {
       setState(() => _isLoadingStats = false);
@@ -180,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final userRole = authProvider.currentUser?.role ?? Roles.parishioner;
     final isAdmin = Roles.isAdmin(userRole);
     final isDioceseLevel = Roles.isDioceseLevel(userRole);
+    final isPriest = Roles.isPriest(userRole);
 
     // Show password change modal if required and user is not a parishioner
     if (authProvider.mustChangePassword &&
@@ -274,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => Navigator.pop(context),
             ),
             // Parishioner Menu Items
-            if (!isAdmin) ...[
+            if (!isAdmin && !isPriest) ...[
               const Divider(),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -293,6 +294,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/my-bookings');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('My Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/my-profile');
+                },
+              ),
+            ],
+            // Priest Menu Items
+            if (isPriest) ...[
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'MY SCHEDULE',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('My Schedule'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/priest-schedule');
                 },
               ),
               ListTile(
@@ -399,8 +431,11 @@ class _HomeScreenState extends State<HomeScreen> {
             isAdmin
                 ? 'Manage sacraments, bookings, and parish operations across ${isDioceseLevel ? 'all parishes' : 'your parish'}.'
                   '\nSelect a service below to begin.'
-                : 'Book sacraments and mass intentions across all parishes in the diocese.'
-                  '\nSelect a service below to begin your booking request.',
+                : isPriest
+                    ? 'View your schedule of assigned sacraments and bookings.'
+                      '\nClick below to see your monthly schedule.'
+                    : 'Book sacraments and mass intentions across all parishes in the diocese.'
+                      '\nSelect a service below to begin your booking request.',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16),
           ),
@@ -483,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
 
           // Parishioner Quick Actions
-          if (!isAdmin) ...[
+          if (!isAdmin && !isPriest) ...[
             Card(
               color: Colors.green.shade50,
               child: Padding(
@@ -606,70 +641,132 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
           ],
 
-          // Services Grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: services.length,
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
-            ),
-            itemBuilder: (context, index) {
-              final service = services[index];
-              return InkWell(
-                onTap: () {
-                  Navigator.pushNamed(context, service["route"]!);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.church,
-                        size: 32,
-                        color: Colors.blue.shade700,
-                      ),
-                      const SizedBox(height: 6),
-                      Flexible(
-                        child: Text(
-                          service["title"]!,
-                          style: const TextStyle(
-                            fontSize: 14,
+          // Priest Schedule Section
+          if (isPriest) ...[
+            Card(
+              color: Colors.purple.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month, color: Colors.purple.shade700, size: 28),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'My Schedule',
+                          style: TextStyle(
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'View your monthly schedule of sacraments and bookings.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/priest-schedule');
+                        },
+                        icon: const Icon(Icons.calendar_today, size: 20),
+                        label: const Text('View Schedule'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Flexible(
-                        child: Text(
-                          service["desc"]!,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+          ],
+
+          // Services Grid (hidden for priest)
+          if (!isPriest) ...[
+            const Text(
+              'Services',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: services.length,
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.3,
+              ),
+              itemBuilder: (context, index) {
+                final service = services[index];
+                return InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, service["route"]!);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.church,
+                          size: 32,
+                          color: Colors.blue.shade700,
+                        ),
+                        const SizedBox(height: 6),
+                        Flexible(
+                          child: Text(
+                            service["title"]!,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Flexible(
+                          child: Text(
+                            service["desc"]!,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

@@ -746,14 +746,22 @@ Navigator.pushNamed(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                             Text(
-                                               booking['childFullName'] ??
-                                                   booking['confirmandName'] ??
-                                                   booking['sickPersonName'] ??
-                                                   booking['deceasedFullName'] ??
-                                                   booking['coupleNames'] ??
-                                                   booking['fullName'] ??
-                                                   'Booking #${booking['id']}',
+Text(
+                                                bookingType == 'wedding'
+                                                    ? booking['groomFullName'] ?? 'Booking #${booking['id']}'
+                                                    : bookingType == 'mass_intention'
+                                                        ? booking['donorName'] ?? 'Booking #${booking['id']}'
+                                                        : bookingType == 'reconciliation'
+                                                            ? booking['penitentName'] ?? 'Booking #${booking['id']}'
+                                                            : bookingType == 'eucharist'
+                                                                ? booking['communicantName'] ?? 'Booking #${booking['id']}'
+                                                                : booking['childFullName'] ??
+                                                                    booking['confirmandName'] ??
+                                                                    booking['sickPersonName'] ??
+                                                                    booking['deceasedFullName'] ??
+                                                                    booking['coupleNames'] ??
+                                                                    booking['fullName'] ??
+                                                                    'Booking #${booking['id']}',
                                                style: const TextStyle(
                                                  fontWeight: FontWeight.bold,
                                                  fontSize: 15,

@@ -67,6 +67,7 @@ class MassIntentionDTO {
       preferredTime: body.preferredTime,
       preferredPriest: body.preferredPriest,
       notes: notes,
+      status: body.status,
     });
   }
 
