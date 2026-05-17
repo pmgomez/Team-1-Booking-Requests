@@ -15,6 +15,7 @@ class MassIntentionRepository {
       donorName: dto.donorName,
       parishId: dto.parishId,
       massSchedule: dto.massSchedule,
+      preferredTime: dto.preferredTime,
       preferredPriest: dto.preferredPriest,
       notes: dto.notes,
       submittedBy: dto.submittedBy,
@@ -79,12 +80,14 @@ class MassIntentionRepository {
    * Updates a mass intention
    */
   async update(id, data) {
+    console.log('[MassIntentionRepository] Update data:', JSON.stringify(data));
     const entity = await MassIntention.findByPk(id);
     if (!entity) {
       throw new Error('Mass intention not found');
     }
 
     await entity.update(data);
+    console.log('[MassIntentionRepository] After update, preferredTime:', entity.preferredTime);
     return MassIntentionDTO.fromEntity(entity);
   }
 

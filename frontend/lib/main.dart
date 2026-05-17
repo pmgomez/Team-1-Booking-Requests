@@ -45,6 +45,7 @@ import 'screens/admin_bookings_screen.dart';
 import 'screens/admin_parishes_screen.dart';
 import 'screens/admin_users_screen.dart';
 import 'screens/admin_records_screen.dart';
+import 'screens/priest_schedule_screen.dart';
 import 'config/app_constants.dart';
 
 void main() {
@@ -178,6 +179,8 @@ class MyApp extends StatelessWidget {
         return MaterialPageRoute(builder: (_) => MyBookingsScreen());
       case '/my-profile':
         return MaterialPageRoute(builder: (_) => const MyProfileScreen());
+      case '/priest-schedule':
+        return MaterialPageRoute(builder: (_) => const PriestScheduleScreen());
       default:
         return null;
     }

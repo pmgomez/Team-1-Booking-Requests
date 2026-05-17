@@ -628,8 +628,11 @@ class _EucharistScreenState extends State<EucharistScreen> {
                       );
                     }
                     
+                    final validPriestId = _selectedPriestId != null && 
+                        priestProvider.priests.any((p) => p.id == _selectedPriestId) 
+                        ? _selectedPriestId : null;
                     return DropdownButtonFormField<int>(
-                      value: _selectedPriestId,
+                      value: validPriestId,
                       decoration: const InputDecoration(
                         labelText: "Preferred Priest (Optional) - Subject to availability",
                         border: OutlineInputBorder(),

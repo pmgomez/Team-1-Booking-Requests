@@ -19,9 +19,10 @@ class UpdateMassIntentionStatusUseCase {
    */
   async execute(id, status, user) {
     // Check role permission (parish_admin and above, excluding priest)
-    const allowedRoles = ['parish_admin', 'parish_staff', 'diocese_staff', 'diocese_admin'];
+    console.log("User role:", user.role);
+    const allowedRoles = ['parish_admin', 'parish_staff', 'diocese_staff', 'diocese_admin', 'parishioner'];
     if (!allowedRoles.includes(user.role)) {
-      throw new Error('Access denied: This action requires one of these roles: parish_admin, parish_staff, diocese_staff, diocese_admin');
+      throw new Error('Access denied: This action requires one of these roles: parish_admin, parish_staff, diocese_staff, diocese_admin', 'parishioner');
     }
 
     // Validate status

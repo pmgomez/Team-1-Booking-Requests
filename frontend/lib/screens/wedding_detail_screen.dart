@@ -1090,10 +1090,13 @@ class _WeddingDetailScreenState extends State<WeddingDetailScreen> {
                                 });
                               }
                             }
+                            final validPriestId = _selectedPriestId != null && 
+                                priestProvider.priests.any((p) => p.id == _selectedPriestId) 
+                                ? _selectedPriestId : null;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: DropdownButtonFormField<int>(
-                                value: _selectedPriestId,
+                                value: validPriestId,
                                 decoration: const InputDecoration(
                                   labelText: "Preferred Priest (Optional)",
                                   border: OutlineInputBorder(),

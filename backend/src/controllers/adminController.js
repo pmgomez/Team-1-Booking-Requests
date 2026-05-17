@@ -17,6 +17,21 @@ const { Op } = require('sequelize');
 const { generateRandomPassword } = require('../utils/passwordUtils');
 const emailService = require('../services/emailService');
 
+// Helper to get sacrament name from model
+const _getSacramentName = (modelName) => {
+  const nameMap = {
+    'BaptismBooking': 'Baptism',
+    'WeddingBooking': 'Wedding',
+    'ConfirmationBooking': 'Confirmation',
+    'EucharistBooking': 'Eucharist',
+    'ReconciliationBooking': 'Reconciliation',
+    'AnointingSickBooking': 'Anointing of the Sick',
+    'FuneralMassBooking': 'Funeral Mass',
+    'MassIntention': 'Mass Intention',
+  };
+  return nameMap[modelName] || 'Sacrament';
+};
+
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
   try {
@@ -1187,6 +1202,57 @@ const updateBookingStatus = async (req, res) => {
 
     await booking.update(updateData);
 
+    // Send email notification for approved/declined status
+    if (status === 'approved' || status === 'declined') {
+      try {
+        const user = await User.findByPk(booking.userId);
+        const contactEmail = booking.contactEmail || booking.email || user?.email;
+        const isDeclined = status === 'declined';
+        
+        const sacramentName = _getSacramentName(bookingModel?.name || booking.constructor?.name || 'Booking');
+        
+        await emailService.sendNotification(
+          contactEmail,
+          `${sacramentName} Booking ${isDeclined ? 'Requires Attention' : (status === 'approved' ? 'Approved' : 'Update')}`,
+          `
+            <h2>${sacramentName} Booking ${isDeclined ? 'Update' : 'Notification'}</h2>
+            <p>Dear Applicant,</p>
+            <p>Your ${sacramentName.toLowerCase()} booking request has been ${isDeclined ? '<span style="color: red;">declined</span>' : status}.</p>
+            ${isDeclined && notes ? `
+              <div style="background-color: #fff3cd; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                <h3 style="margin-top: 0; color: #856404;">⚠️ Your booking requires attention</h3>
+                <p><strong>Reason for decline:</strong></p>
+                ${notes.map(n => n.content || n).join('<br>')}
+                <p><strong>What to do next:</strong></p>
+                <ol style="margin-left: 16px;">
+                  <li>Review the reason above</li>
+                  <li>Make the necessary corrections or changes</li>
+                  <li>Log in to the booking system and click <strong>"Resubmit Booking"</strong> after making your changes</li>
+                </ol>
+              </div>
+            ` : ''}
+            <p><strong>Booking Details:</strong></p>
+            <ul>
+              <li>Reference Number: ${booking.id}</li>
+              <li>Preferred Date: ${booking.preferredDate || booking.massSchedule ? new Date(booking.preferredDate || booking.massSchedule).toLocaleDateString() : 'Not specified'}</li>
+              <li>Preferred Time Slot: ${booking.preferredTimeSlot || booking.massTime || 'Not specified'}</li>
+              <li>Status: ${status}</li>
+            </ul>
+            ${booking.notes && booking.notes.length > 0 ? `
+              <p><strong>Previous Notes:</strong></p>
+              <ul>
+                ${booking.notes.slice(-3).map(note => `<li><em>${note.author === 'admin' ? 'Parish Admin' : 'You'}:</em> ${note.content}</li>`).join('')}
+              </ul>
+            ` : ''}
+            <br>
+            <p>Best regards,<br>The Parish Team</p>
+          `
+        );
+      } catch (emailError) {
+        console.error('Failed to send status update email:', emailError);
+      }
+    }
+
     res.json({
       message: `Booking ${status ? status + 'ed' : 'updated'} successfully`,
       booking,
@@ -1439,6 +1505,87 @@ const getPriestsByParish = async (req, res) => {
   }
 };
 
+// Get priest's schedule (bookings assigned to the priest)
+const getPriestSchedule = async (req, res) => {
+  try {
+    const { month, year, status } = req.query;
+    const priestId = req.user.userId;
+    
+    // Calculate date range for the month
+    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+    
+    const startDate = new Date(targetYear, targetMonth - 1, 1);
+    const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59); // Last day of month
+
+    const bookingTables = [
+      { model: BaptismBooking, type: 'baptism' },
+      { model: WeddingBooking, type: 'wedding' },
+      { model: ConfirmationBooking, type: 'confirmation' },
+      { model: EucharistBooking, type: 'eucharist' },
+      { model: ReconciliationBooking, type: 'reconciliation' },
+      { model: AnointingSickBooking, type: 'anointing_sick' },
+      { model: FuneralMassBooking, type: 'funeral_mass' },
+    ];
+
+    let allBookings = [];
+    const whereClause = { priestId };
+
+    // Filter by status if provided
+    if (status) {
+      whereClause.status = status;
+    } else {
+      // Default: show pending and approved bookings
+      whereClause.status = { [Op.in]: ['pending', 'approved'] };
+    }
+
+    for (const { model, type } of bookingTables) {
+      try {
+        const bookings = await model.findAll({
+          where: {
+            ...whereClause,
+            preferredDate: {
+              [Op.gte]: startDate.toISOString().split('T')[0],
+              [Op.lte]: endDate.toISOString().split('T')[0],
+            },
+          },
+          include: [
+            { model: Parish, as: 'parish', attributes: ['id', 'name'] },
+          ],
+          order: [['preferredDate', 'ASC'], ['preferredTimeSlot', 'ASC']],
+        });
+
+        const bookingsWithType = bookings.map(booking => ({
+          ...booking.toJSON(),
+          bookingType: type,
+          sacramentType: type,
+        }));
+
+        allBookings.push(...bookingsWithType);
+      } catch (err) {
+        console.error(`Error querying ${type} bookings for priest schedule:`, err);
+      }
+    }
+
+    // Sort all bookings by date
+    allBookings.sort((a, b) => new Date(a.preferredDate) - new Date(b.preferredDate));
+
+    res.json({
+      success: true,
+      bookings: allBookings,
+      month: targetMonth,
+      year: targetYear,
+    });
+  } catch (error) {
+    console.error('Error getting priest schedule:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get priest schedule',
+      message: error.message 
+    });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -1461,4 +1608,5 @@ module.exports = {
   getAllMassIntentions,
   updateMassIntentionStatus,
   getPriestsByParish,
+  getPriestSchedule,
 };

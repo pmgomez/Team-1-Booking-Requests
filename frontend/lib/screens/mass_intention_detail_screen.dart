@@ -32,7 +32,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
   final TextEditingController _offeredByController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
-  final TextEditingController _preferredPriestController = TextEditingController();
   final TextEditingController _newNoteController = TextEditingController();
   final TextEditingController _parishNameController = TextEditingController();
 
@@ -82,7 +81,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         _offeredByController.text = intention.donorName ?? '';
         _dateController.text = intention.dateRequested ?? '';
         _preferredTimeController.text = intention.preferredTime ?? '';
-        _preferredPriestController.text = intention.preferredPriest ?? '';
         _parishNameController.text = intention.parishName ?? '';
         _selectedType = mapTypeToFrontend(intention.type);
         // Do not populate _newNoteController - it's for adding new notes
@@ -153,12 +151,13 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.currentUser;
+      final isParishioner = currentUser?.role == 'parishioner';
+
       // Prepare notes array if a new note was added
       List<Map<String, dynamic>>? notesToAdd;
       if (_newNoteController.text.trim().isNotEmpty) {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        final currentUser = authProvider.currentUser;
-        final isParishioner = currentUser?.role == 'parishioner';
         notesToAdd = [
           {
             'author': isParishioner ? 'parishioner' : 'admin',
@@ -174,9 +173,9 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         intentionDetails: _intentionForController.text.trim(),
         donorName: _offeredByController.text.trim(),
         dateRequested: _dateController.text,
+        parishId: _intention?.parishId ?? 0,
         massSchedule: _dateController.text,
         preferredTime: _preferredTimeController.text.trim().isEmpty ? null : _preferredTimeController.text.trim(),
-        preferredPriest: _preferredPriestController.text.trim().isEmpty ? null : _preferredPriestController.text.trim(),
         notes: notesToAdd,
       );
 
@@ -185,6 +184,8 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mass intention updated successfully')));
           _newNoteController.clear();
+          // Reload data to get updated preferredTime
+          await _loadMassIntention();
           _toggleEditMode();
           Navigator.pop(context, true);
         } else {
@@ -220,6 +221,72 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
         Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed')));
+      }
+    }
+  }
+
+  Future<void> _resubmitMassIntention(dynamic currentUser) async {
+    if (widget.massIntentionId == null) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final isParishioner = currentUser?.role == 'parishioner';
+
+      List<Map<String, dynamic>>? notes;
+      if (_newNoteController.text.trim().isNotEmpty) {
+        notes = [{
+          'author': isParishioner ? 'parishioner' : 'user',
+          'content': _newNoteController.text.trim(),
+          'authorId': currentUser?.id,
+        }];
+      }
+
+      // Use updateMassIntention with status='pending' to resubmit
+      String mapTypeForResubmit(String? frontendType) {
+        switch (frontendType) {
+          case 'Thanksgiving':
+            return 'Thanksgiving';
+          case 'Petition':
+            return 'Special Intention';
+          case 'Soul / Death Anniversary':
+            return 'For the Dead';
+          case 'Healing':
+            return 'Special Intention';
+          case 'Special Intention':
+          default:
+            return 'Special Intention';
+        }
+      }
+
+      final result = await _massIntentionService.updateMassIntention(
+        id: widget.massIntentionId!,
+        type: mapTypeForResubmit(_selectedType),
+        intentionDetails: _intentionForController.text.trim(),
+        donorName: _offeredByController.text.trim(),
+        dateRequested: _dateController.text,
+        parishId: _intention?.parishId ?? 0,
+        massSchedule: _dateController.text,
+        preferredTime: _preferredTimeController.text.trim().isEmpty ? null : _preferredTimeController.text.trim(),
+        notes: notes,
+        status: 'pending',
+      );
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+
+        if (result.success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mass intention resubmitted successfully')));
+          _newNoteController.clear();
+          await _loadMassIntention();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message ?? 'Failed to resubmit')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -479,8 +546,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
             const SizedBox(height: 12),
             _textField('Offered By (Name/Family) *', _offeredByController, enabled: _isEditMode),
             const SizedBox(height: 12),
-            _textField('Preferred Priest (Optional)', _preferredPriestController, enabled: _isEditMode),
-            const SizedBox(height: 12),
 
             // Display existing notes
             if (_intention?.notes != null && _intention!.notes!.isNotEmpty)
@@ -493,7 +558,55 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
               _textField('Add a note', _newNoteController, maxLines: 3, enabled: true),
             ],
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+
+            // Resubmit button for declined status (owner only)
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, child) {
+                final currentUser = authProvider.currentUser;
+                final isOwner = _intention?.submittedBy == currentUser?.id;
+                final status = _intention?.status?.toLowerCase();
+
+                if (status == 'declined' && isOwner) {
+                  return Column(
+                    children: [
+                      Card(
+                        color: Colors.orange.shade50,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Your mass intention was declined. Please make the necessary changes and resubmit.',
+                                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  icon: _isSaving
+                                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Icon(Icons.refresh),
+                                  label: Text(_isSaving ? 'Resubmitting...' : 'Resubmit'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: _isSaving ? null : () => _resubmitMassIntention(currentUser),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
 
             _buildStatusSection(isAdmin, widget.massIntentionId ?? 0),
           ]),
@@ -508,7 +621,6 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
     _offeredByController.dispose();
     _dateController.dispose();
     _preferredTimeController.dispose();
-    _preferredPriestController.dispose();
     _newNoteController.dispose();
     super.dispose();
   }

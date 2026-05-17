@@ -512,7 +512,6 @@ class _ConfirmationDetailScreenState extends State<ConfirmationDetailScreen> {
             // Preferred Priest dropdown
             Consumer<PriestProvider>(
               builder: (context, priestProvider, child) {
-                // Load priests if not loaded
                 if (priestProvider.priests.isEmpty && _booking != null) {
                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
                   final parishProvider = Provider.of<ParishProvider>(context, listen: false);
@@ -522,10 +521,13 @@ class _ConfirmationDetailScreenState extends State<ConfirmationDetailScreen> {
                     });
                   }
                 }
+                final validPriestId = _selectedPriestId != null && 
+                    priestProvider.priests.any((p) => p.id == _selectedPriestId) 
+                    ? _selectedPriestId : null;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: DropdownButtonFormField<int>(
-                    value: _selectedPriestId,
+                    value: validPriestId,
                     decoration: const InputDecoration(
                       labelText: "Preferred Priest (Optional)",
                       border: OutlineInputBorder(),

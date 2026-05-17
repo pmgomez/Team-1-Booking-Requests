@@ -165,16 +165,18 @@ class MassIntentionService {
     }
   }
 
-  Future<ApiResponse<MassIntention>> updateMassIntention({
+Future<ApiResponse<MassIntention>> updateMassIntention({
     required int id,
     required String type,
     required String intentionDetails,
     required String donorName,
     required String dateRequested,
+    required int parishId,
     required String massSchedule,
     String? preferredTime,
     String? preferredPriest,
     List<Map<String, dynamic>>? notes,
+    String? status,
   }) async {
     try {
       final requestBody = {
@@ -182,10 +184,12 @@ class MassIntentionService {
         'intentionDetails': intentionDetails,
         'donorName': donorName,
         'dateRequested': dateRequested,
+        'parishId': parishId,
         'massSchedule': massSchedule,
-        if (preferredTime != null) 'preferredTime': preferredTime,
+        'preferredTime': preferredTime ?? '',
         if (preferredPriest != null) 'preferredPriest': preferredPriest,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (status != null) 'status': status,
       };
 
       final response = await _apiClient.putWithAuth(
@@ -267,6 +271,53 @@ class MassIntentionService {
       return ApiResponse<MassIntention>(
         success: false,
         message: 'Network error updating mass intention status: $e',
+        errors: [e.toString()],
+      );
+    }
+  }
+
+  Future<ApiResponse<MassIntention>> resubmitMassIntention({
+    required int id,
+    required int parishId,
+    List<Map<String, dynamic>>? notes,
+  }) async {
+    try {
+      final requestBody = {
+        'status': 'pending',
+        'intentionDetails': '',
+        'donorName': '',
+        'dateRequested': '',
+        'massSchedule': '',
+        'parishId': parishId,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      };
+
+      final response = await _apiClient.putWithAuth(
+        '${ApiConfig.massIntentionsEndpoint}/$id',
+        json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final intention = MassIntention.fromJson(data['intention'] ?? data['massIntention'] ?? data);
+
+        return ApiResponse<MassIntention>(
+          success: true,
+          data: intention,
+          message: data['message'] ?? 'Mass intention resubmitted successfully',
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        return ApiResponse<MassIntention>(
+          success: false,
+          message: errorData['message'] ?? 'Failed to resubmit mass intention',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      return ApiResponse<MassIntention>(
+        success: false,
+        message: 'Network error resubmitting mass intention: $e',
         errors: [e.toString()],
       );
     }

@@ -25,6 +25,11 @@ class Roles {
   static bool isDioceseLevel(String role) {
     return [dioceseStaff, dioceseAdmin].contains(role);
   }
+
+  /// Check if role is priest
+  static bool isPriest(String role) {
+    return role == priest;
+  }
   
   /// Check if role is parish level (restricted to one parish)
   static bool isParishLevel(String role) {
