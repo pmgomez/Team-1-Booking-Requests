@@ -194,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Diocese Booking System"),
+        title: const Text("RCDOK Booking System"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -420,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         children: [
           const Text(
-            "Welcome to Diocese Booking System",
+            "Welcome to the Roman Catholic Diocese of Kalookan Booking System",
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,

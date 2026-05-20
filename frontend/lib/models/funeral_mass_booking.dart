@@ -1,4 +1,5 @@
 import 'document.dart';
+import 'note.dart';
 
 class FuneralMassBooking {
   final int? id;
@@ -17,6 +18,7 @@ class FuneralMassBooking {
   final String? preferredTimeSlot;
   final String? preferredPriest;
   final String? additionalNotes;
+  final List<Note>? notes;
   final String status;
   final String? adminNotes;
   final int? approvedBy;
@@ -42,6 +44,7 @@ class FuneralMassBooking {
     this.preferredTimeSlot,
     this.preferredPriest,
     this.additionalNotes,
+    this.notes,
     this.status = 'pending',
     this.adminNotes,
     this.approvedBy,
@@ -52,6 +55,13 @@ class FuneralMassBooking {
   });
 
   factory FuneralMassBooking.fromJson(Map<String, dynamic> json) {
+    List<Note>? notesList;
+    if (json['notes'] != null) {
+      notesList = (json['notes'] as List)
+          .map((note) => Note.fromJson(note))
+          .toList();
+    }
+
     return FuneralMassBooking(
       id: json['id'],
       parishId: json['parishId'],
@@ -69,6 +79,7 @@ class FuneralMassBooking {
       preferredTimeSlot: json['preferredTimeSlot'],
       preferredPriest: json['preferredPriest'],
       additionalNotes: json['additionalNotes'],
+      notes: notesList,
       status: json['status'] ?? 'pending',
       adminNotes: json['adminNotes'],
       approvedBy: json['approvedBy'],
@@ -98,6 +109,7 @@ class FuneralMassBooking {
       if (preferredTimeSlot != null) 'preferredTimeSlot': preferredTimeSlot,
       if (preferredPriest != null) 'preferredPriest': preferredPriest,
       if (additionalNotes != null) 'additionalNotes': additionalNotes,
+      if (notes != null) 'notes': notes!.map((n) => n.toJson()).toList(),
       if (status != null) 'status': status,
       if (adminNotes != null) 'adminNotes': adminNotes,
     };
@@ -120,6 +132,7 @@ class FuneralMassBooking {
     String? preferredTimeSlot,
     String? preferredPriest,
     String? additionalNotes,
+    List<Note>? notes,
     String? status,
     String? adminNotes,
     int? approvedBy,
@@ -145,6 +158,7 @@ class FuneralMassBooking {
       preferredTimeSlot: preferredTimeSlot ?? this.preferredTimeSlot,
       preferredPriest: preferredPriest ?? this.preferredPriest,
       additionalNotes: additionalNotes ?? this.additionalNotes,
+      notes: notes ?? this.notes,
       status: status ?? this.status,
       adminNotes: adminNotes ?? this.adminNotes,
       approvedBy: approvedBy ?? this.approvedBy,

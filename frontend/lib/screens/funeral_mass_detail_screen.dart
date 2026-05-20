@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/funeral_mass_booking.dart';
 import '../providers/auth_provider.dart';
+import '../providers/parish_provider.dart';
+import '../providers/priest_provider.dart';
 import '../services/funeral_mass_service.dart';
+import '../widgets/notes_display.dart';
 
 class FuneralMassDetailScreen extends StatefulWidget {
   final int? funeralMassId;
@@ -38,7 +41,9 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
   final TextEditingController _preferredDateController = TextEditingController();
   final TextEditingController _preferredTimeController = TextEditingController();
   final TextEditingController _preferredPriestController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _newNoteController = TextEditingController();
+
+  int? _selectedPriestId;
 
   @override
   void initState() {
@@ -82,8 +87,8 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
         _preferredDateController.text = booking.preferredDate?.split('T')[0] ?? '';
         _preferredTimeController.text = booking.preferredTimeSlot ?? '';
         _preferredPriestController.text = booking.preferredPriest ?? '';
-        _notesController.text = booking.additionalNotes ?? '';
       });
+      _loadPriestsAndMatch();
       if (widget.fromStatusButton && isEditable) {
         setState(() => _isEditMode = true);
       } else {
@@ -122,6 +127,73 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
     return true;
   }
 
+  Future<void> _loadPriestsAndMatch() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final priestProvider = Provider.of<PriestProvider>(context, listen: false);
+    final parishId = _booking?.parishId;
+    if (parishId != null && authProvider.token != null) {
+      await priestProvider.loadPriestsByParish(parishId, token: authProvider.token);
+      if (mounted && _preferredPriestController.text.isNotEmpty) {
+        final matchingPriest = priestProvider.priests.firstWhere(
+          (p) => p.fullName == _preferredPriestController.text,
+          orElse: () => priestProvider.priests.isNotEmpty ? priestProvider.priests.first : priestProvider.priests.first,
+        );
+        if (priestProvider.priests.any((p) => p.fullName == _preferredPriestController.text)) {
+          setState(() {
+            _selectedPriestId = priestProvider.priests
+                .firstWhere((p) => p.fullName == _preferredPriestController.text)
+                .id;
+          });
+        }
+      }
+    }
+  }
+
+  Widget _buildPriestDropdown() {
+    return Consumer2<ParishProvider, PriestProvider>(
+      builder: (context, parishProvider, priestProvider, _) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final parishId = _booking?.parishId ?? parishProvider.selectedParish?.id;
+        if (parishId != null && priestProvider.priests.isEmpty) {
+          priestProvider.loadPriestsByParish(parishId, token: authProvider.token);
+        }
+
+        final validPriestId = _selectedPriestId != null &&
+            priestProvider.priests.any((p) => p.id == _selectedPriestId)
+            ? _selectedPriestId
+            : null;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DropdownButtonFormField<int>(
+            value: validPriestId,
+            decoration: const InputDecoration(
+              labelText: "Preferred Priest (Optional)",
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem<int>(
+                value: null,
+                child: Text("No preference"),
+              ),
+              ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
+                value: priest.id,
+                child: Text(priest.fullName),
+              )),
+            ],
+            onChanged: _isEditMode
+                ? (value) {
+                    setState(() {
+                      _selectedPriestId = value;
+                    });
+                  }
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _saveChanges() async {
     if (!_validateForm()) return;
 
@@ -141,6 +213,30 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
 
     setState(() => _isSaving = true);
 
+    // Prepare notes array if a new note was added
+    List<Map<String, dynamic>>? notesToAdd;
+    if (_newNoteController.text.trim().isNotEmpty) {
+      final currentUser = authProvider.currentUser;
+      final isParishioner = currentUser?.role == 'parishioner';
+      notesToAdd = [
+        {
+          'author': isParishioner ? 'parishioner' : 'admin',
+          'content': _newNoteController.text.trim(),
+          'authorId': currentUser?.id,
+        }
+      ];
+    }
+
+    final priestProvider = Provider.of<PriestProvider>(context, listen: false);
+    final selectedPriestName = _selectedPriestId != null
+        ? priestProvider.priests.firstWhere(
+            (p) => p.id == _selectedPriestId,
+            orElse: () => priestProvider.priests.isNotEmpty
+                ? priestProvider.priests.first
+                : throw Exception('No priests available'),
+          ).fullName
+        : null;
+
     try {
       final result = await _funeralMassService.updateFuneralMassBooking(
         token: token,
@@ -155,8 +251,8 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
         wakeLocation: _wakeLocationController.text.trim().isEmpty ? null : _wakeLocationController.text.trim(),
         preferredDate: _preferredDateController.text,
         preferredTimeSlot: _preferredTimeController.text,
-        preferredPriest: _preferredPriestController.text.trim().isEmpty ? null : _preferredPriestController.text.trim(),
-        additionalNotes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        preferredPriest: selectedPriestName,
+        notes: notesToAdd,
       );
 
       if (mounted) {
@@ -164,6 +260,7 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
 
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking updated successfully')));
+          _newNoteController.clear();
           _toggleEditMode();
           Navigator.pop(context, true);
         } else {
@@ -389,8 +486,18 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
             _textField("Parish", TextEditingController(text: _booking?.parishName ?? ''), enabled: false),
             _textField("Preferred Date *", _preferredDateController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectDate),
             _textField("Time Slot *", _preferredTimeController, enabled: _isEditMode, readOnly: _isEditMode, onTap: _selectTime),
-            _textField("Preferred Priest", _preferredPriestController, enabled: _isEditMode),
-            _textField("Additional Notes", _notesController, maxLines: 3, enabled: _isEditMode),
+            _buildPriestDropdown(),
+
+            // Display existing notes in conversation format
+            if (_booking?.notes != null && _booking!.notes!.isNotEmpty)
+              NotesDisplay(notes: _booking!.notes!),
+
+            // Add new note field (only in edit mode)
+            if (_isEditMode) ...[
+              const SizedBox(height: 16),
+              _buildSectionTitle('Add Note (Optional)'),
+              _textField('Add a note', _newNoteController, maxLines: 3, enabled: true),
+            ],
 
             const SizedBox(height: 16),
             _buildStatusSection(isAdmin, widget.funeralMassId ?? 0),
@@ -539,7 +646,7 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
     _preferredDateController.dispose();
     _preferredTimeController.dispose();
     _preferredPriestController.dispose();
-    _notesController.dispose();
+    _newNoteController.dispose();
     super.dispose();
   }
 }

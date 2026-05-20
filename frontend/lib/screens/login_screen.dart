@@ -76,10 +76,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 50),
               
               // Logo/Icon
-              Icon(
-                Icons.church,
-                size: 100,
-                color: Theme.of(context).primaryColor,
+              Image.asset(
+                'assets/icons/Diocese-of-Kalookan-Logo.png',
+                width: 100,
+                height: 100,
               ),
               const SizedBox(height: 20),
               

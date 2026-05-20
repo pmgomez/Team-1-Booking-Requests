@@ -505,9 +505,6 @@ exports.updateSacramentBooking = (sacramentType) => async (req, res) => {
 
     // Admins can update status, users can only update notes and resubmit after decline
     if (!isAdmin) {
-      delete updateData.preferredDate;
-      delete updateData.preferredTimeSlot;
-      
       // Allow parishioners to resubmit: change status from 'declined' back to 'pending'
       if (updateData.status && booking.status === 'declined' && updateData.status === 'pending') {
         // This is allowed - resubmit after decline

@@ -35,16 +35,16 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.church,
-              size: 100,
-              color: Colors.white,
+            Image.asset(
+              'assets/icons/Diocese-of-Kalookan-Logo.png',
+              width: 120,
+              height: 120,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
               'Diocese of Kalookan',
               style: TextStyle(

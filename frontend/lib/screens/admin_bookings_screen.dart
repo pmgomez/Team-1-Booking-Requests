@@ -195,7 +195,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
         context,
         '/baptism-detail',
         arguments: {'id': id, 'fromStatusButton': true},
-      );
+      ).then((_) => _loadBookings());
       return;
     } else if (bookingType == 'mass_intention') {
       // Navigate to mass intention detail screen for approval/completion actions
@@ -209,7 +209,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
         context,
         '/mass-intention-detail',
         arguments: {'id': id, 'fromStatusButton': true},
-      );
+      ).then((_) => _loadBookings());
       return;
      } else if (bookingType == 'confirmation') {
        // Navigate to confirmation detail screen for approval/completion actions
@@ -223,7 +223,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
          context,
          '/confirmation-detail',
          arguments: {'id': id, 'fromStatusButton': true},
-       );
+       ).then((_) => _loadBookings());
        return;
       } else if (bookingType == 'anointing_sick') {
         // Navigate to anointing sick detail screen for approval/completion actions
@@ -237,7 +237,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
           context,
           '/anointing-sick-detail',
           arguments: {'id': id, 'fromStatusButton': true},
-        );
+        ).then((_) => _loadBookings());
         return;
       } else if (bookingType == 'funeral_mass') {
         // Navigate to funeral mass detail screen for approval/completion actions
@@ -247,11 +247,11 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                 ? booking['id']
                 : null;
 
-Navigator.pushNamed(
+        Navigator.pushNamed(
           context,
           '/funeral-mass-detail',
           arguments: {'id': id, 'fromStatusButton': true},
-        );
+        ).then((_) => _loadBookings());
         return;
       } else if (bookingType == 'wedding') {
         final weddingId = booking['id'] is String
@@ -264,7 +264,7 @@ Navigator.pushNamed(
           context,
           '/wedding-detail',
           arguments: {'weddingId': weddingId, 'fromStatusButton': true},
-        );
+        ).then((_) => _loadBookings());
         return;
       }
 
@@ -636,7 +636,7 @@ Navigator.pushNamed(
                                                 : null,
                                         'fromStatusButton': true,
                                       },
-                                    );
+                                    ).then((_) => _loadBookings());
                                   } else if (bookingType == 'mass_intention') {
                                     Navigator.pushNamed(
                                       context,
@@ -649,7 +649,7 @@ Navigator.pushNamed(
                                                 : null,
                                         'fromStatusButton': true,
                                       },
-                                    );
+                                    ).then((_) => _loadBookings());
                                   } else if (bookingType == 'confirmation') {
                                     Navigator.pushNamed(
                                       context,
@@ -662,7 +662,7 @@ Navigator.pushNamed(
                                                 : null,
                                         'fromStatusButton': true,
                                       },
-                                    );
+                                    ).then((_) => _loadBookings());
                                   } else if (bookingType == 'anointing_sick') {
                                     Navigator.pushNamed(
                                       context,
@@ -675,7 +675,7 @@ Navigator.pushNamed(
                                                 : null,
                                         'fromStatusButton': true,
                                       },
-                                    );
+                                    ).then((_) => _loadBookings());
                                   } else if (bookingType == 'funeral_mass') {
                                     Navigator.pushNamed(
                                       context,
@@ -688,7 +688,7 @@ Navigator.pushNamed(
                                                 : null,
                                         'fromStatusButton': true,
                                       },
-                                    );
+                                    ).then((_) => _loadBookings());
                                   } else if (bookingType == 'reconciliation') {
                                     Navigator.pushNamed(
                                       context,
@@ -701,8 +701,8 @@ Navigator.pushNamed(
                                                 : null,
                                         'fromStatusButton': true,
                                       },
-                                    );
-} else if (bookingType == 'wedding') {
+                                    ).then((_) => _loadBookings());
+                                  } else if (bookingType == 'wedding') {
                                      Navigator.pushNamed(
                                        context,
                                        '/wedding-detail',
@@ -714,7 +714,7 @@ Navigator.pushNamed(
                                                  : null,
                                          'fromStatusButton': true,
                                        },
-                                     );
+                                     ).then((_) => _loadBookings());
                                    } else if (bookingType == 'eucharist') {
                                      Navigator.pushNamed(
                                        context,
@@ -727,7 +727,7 @@ Navigator.pushNamed(
                                                  : null,
                                          'fromStatusButton': true,
                                        },
-                                     );
+                                     ).then((_) => _loadBookings());
                                    } else {
                                     // Show generic details for other types
                                     _showBookingDetails(booking);
@@ -817,7 +817,7 @@ Text(
                                               context,
                                               '/baptism-detail',
                                               arguments: {'id': id, 'fromStatusButton': true},
-                                            );
+                                            ).then((_) => _loadBookings());
                                           } else if (bookingType == 'mass_intention') {
                                             final id = booking['id'] is String
                                                 ? int.tryParse(booking['id'])
@@ -828,7 +828,7 @@ Text(
                                               context,
                                               '/mass-intention-detail',
                                               arguments: {'id': id, 'fromStatusButton': true},
-                                            );
+                                            ).then((_) => _loadBookings());
                                           } else if (bookingType == 'confirmation') {
                                             final id = booking['id'] is String
                                                 ? int.tryParse(booking['id'])
@@ -839,7 +839,7 @@ Text(
                                               context,
                                               '/confirmation-detail',
                                               arguments: {'id': id, 'fromStatusButton': true},
-                                            );
+                                            ).then((_) => _loadBookings());
                                           } else if (bookingType == 'anointing_sick') {
                                             final id = booking['id'] is String
                                                 ? int.tryParse(booking['id'])
@@ -850,7 +850,7 @@ Text(
                                               context,
                                               '/anointing-sick-detail',
                                               arguments: {'id': id, 'fromStatusButton': true},
-                                            );
+                                            ).then((_) => _loadBookings());
                                           } else if (bookingType == 'funeral_mass') {
                                             final id = booking['id'] is String
                                                 ? int.tryParse(booking['id'])
@@ -861,8 +861,8 @@ Text(
                                               context,
                                               '/funeral-mass-detail',
                                               arguments: {'id': id, 'fromStatusButton': true},
-                                            );
-} else if (bookingType == 'reconciliation') {
+                                            ).then((_) => _loadBookings());
+                                          } else if (bookingType == 'reconciliation') {
                                              final id = booking['id'] is String
                                                  ? int.tryParse(booking['id'])
                                                  : booking['id'] is int
@@ -872,7 +872,7 @@ Text(
                                                context,
                                                '/reconciliation-detail',
                                                arguments: {'id': id, 'fromStatusButton': true},
-                                             );
+                                             ).then((_) => _loadBookings());
                                            } else if (bookingType == 'wedding') {
                                              final weddingId = booking['id'] is String
                                                  ? int.tryParse(booking['id'])
@@ -883,7 +883,7 @@ Text(
                                                context,
                                                '/wedding-detail',
                                                arguments: {'weddingId': weddingId, 'fromStatusButton': true},
-                                             );
+                                             ).then((_) => _loadBookings());
                                            } else if (bookingType == 'eucharist') {
                                              final eucharistId = booking['id'] is String
                                                  ? int.tryParse(booking['id'])
@@ -894,7 +894,7 @@ Text(
                                                context,
                                                '/eucharist-detail',
                                                arguments: {'id': eucharistId, 'fromStatusButton': true},
-                                             );
+                                             ).then((_) => _loadBookings());
                                            } else {
                                              // Show generic details for other types
                                              _showBookingDetails(booking);
