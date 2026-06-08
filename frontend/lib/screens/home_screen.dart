@@ -385,14 +385,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, '/admin-users');
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.description),
-                title: const Text('Sacramental Records'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/admin-records');
-                },
-              ),
+              // ListTile(
+              //   leading: const Icon(Icons.description),
+              //   title: const Text('Sacramental Records'),
+              //   onTap: () {
+              //     Navigator.pop(context);
+              //     Navigator.pushNamed(context, '/admin-records');
+              //   },
+              // ),
             ],
             const Divider(),
             ListTile(

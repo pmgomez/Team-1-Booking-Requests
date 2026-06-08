@@ -290,15 +290,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ],
                         const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.description, color: Colors.indigo),
-                          title: const Text('Sacramental Records'),
-                          subtitle: const Text('View and manage sacramental records'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.pushNamed(context, '/admin-records');
-                          },
-                        ),
+                        // ListTile(
+                        //   leading: const Icon(Icons.description, color: Colors.indigo),
+                        //   title: const Text('Sacramental Records'),
+                        //   subtitle: const Text('View and manage sacramental records'),
+                        //   trailing: const Icon(Icons.chevron_right),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, '/admin-records');
+                        //   },
+                        // ),
                       ],
                     ),
                   ),

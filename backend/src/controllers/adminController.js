@@ -707,7 +707,7 @@ const deleteUser = async (req, res) => {
       }
     }
 
-    await user.update({ isActive: false });
+    await User.update({ isActive: false }, { where: { id } });
 
     res.json({ message: 'User deactivated successfully' });
   } catch (error) {

@@ -169,25 +169,25 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
               
               // Google Sign-In Button
-              OutlinedButton.icon(
-                onPressed: authProvider.isLoading ? null : _signInWithGoogle,
-                icon: const Icon(Icons.g_mobiledata_outlined, color: Colors.red),
-                label: const Text(
-                  'Sign in with Google',
-                  style: TextStyle(
-                    fontSize: 16,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: BorderSide(
-                    color: authProvider.isLoading ? Colors.grey : Colors.grey.shade400,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+              // OutlinedButton.icon(
+              //   onPressed: authProvider.isLoading ? null : _signInWithGoogle,
+              //   icon: const Icon(Icons.g_mobiledata_outlined, color: Colors.red),
+              //   label: const Text(
+              //     'Sign in with Google',
+              //     style: TextStyle(
+              //       fontSize: 16,
+              //     ),
+              //   ),
+              //   style: OutlinedButton.styleFrom(
+              //     padding: const EdgeInsets.symmetric(vertical: 12),
+              //     side: BorderSide(
+              //       color: authProvider.isLoading ? Colors.grey : Colors.grey.shade400,
+              //     ),
+              //     shape: RoundedRectangleBorder(
+              //       borderRadius: BorderRadius.circular(8),
+              //     ),
+              //   ),
+              // ),
               const SizedBox(height: 20),
               
               // Forgot Password Link

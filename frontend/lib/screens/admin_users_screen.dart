@@ -456,6 +456,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final emailController = TextEditingController();
     String selectedRole = Roles.parishioner;
     int? selectedParishId;
+    bool isCreating = false;
     final formKey = GlobalKey<FormState>();
 
     // Filter roles based on current user's role using helper
@@ -618,46 +619,60 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isCreating ? null : () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                  final token = authProvider.token;
+              onPressed: isCreating
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isCreating = true);
+                        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                        final token = authProvider.token;
 
-                  if (token == null) return;
+                        if (token == null) {
+                          setDialogState(() => isCreating = false);
+                          return;
+                        }
 
-                  final response = await _adminService.createUser(
-                    token,
-                    {
-                      'firstName': firstNameController.text,
-                      'lastName': lastNameController.text,
-                      'email': emailController.text,
-                      'role': selectedRole,
-                      'assignedParishId': showParishSelection ? selectedParishId : null,
+                        final response = await _adminService.createUser(
+                          token,
+                          {
+                            'firstName': firstNameController.text,
+                            'lastName': lastNameController.text,
+                            'email': emailController.text,
+                            'role': selectedRole,
+                            'assignedParishId': showParishSelection ? selectedParishId : null,
+                          },
+                        );
+
+                        setDialogState(() => isCreating = false);
+
+                        if (response.success) {
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('User created successfully. Login credentials sent via email.')),
+                            );
+                            _loadUsers();
+                          }
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(response.message ?? 'Failed to create user')),
+                            );
+                          }
+                        }
+                      }
                     },
-                  );
-
-                  if (response.success) {
-                    if (mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('User created successfully. Login credentials sent via email.')),
-                      );
-                      _loadUsers();
-                    }
-                  } else {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(response.message ?? 'Failed to create user')),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Create'),
+              child: isCreating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Create'),
             ),
           ],
         ),
@@ -777,58 +792,103 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       final user = _filteredUsers[index];
                       final userId = user['id'] ?? 0;
                       final isSelected = _selectedUserIds.contains(userId);
+                      final isActive = user['isActive'] ?? true;
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        color: isSelected ? Colors.blue.shade50 : null,
-                        child: ListTile(
-                          onTap: () {
-                            if (_isSelectionMode) {
-                              _toggleUserSelection(userId);
-                            } else {
-                              _showEditUserDialog(user);
-                            }
-                          },
-                          onLongPress: () {
-                            if (!_isSelectionMode) {
-                              _toggleSelectionMode();
-                              _toggleUserSelection(userId);
-                            }
-                          },
-                          leading: CircleAvatar(
-                            backgroundColor: _getRoleColor(user['role'] ?? 'parishioner'),
-                            child: Text(
-                              (user['firstName'] ?? 'U')[0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          title: Text(
-                            '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text(user['email'] ?? ''),
-                              Text(
-                                'Role: ${Roles.getRoleDisplayName(user['role'] ?? 'parishioner')}',
-                                style: TextStyle(
-                                  color: _getRoleColor(user['role'] ?? 'parishioner'),
-                                  fontWeight: FontWeight.w600,
+                      return Opacity(
+                        opacity: isActive ? 1.0 : 0.55,
+                        child: Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          color: isSelected
+                              ? Colors.blue.shade50
+                              : (isActive ? null : Colors.grey.shade100),
+                          child: ListTile(
+                            onTap: () {
+                              if (_isSelectionMode) {
+                                _toggleUserSelection(userId);
+                              } else {
+                                _showEditUserDialog(user);
+                              }
+                            },
+                            onLongPress: () {
+                              if (!_isSelectionMode) {
+                                _toggleSelectionMode();
+                                _toggleUserSelection(userId);
+                              }
+                            },
+                            leading: CircleAvatar(
+                              backgroundColor: isActive
+                                  ? _getRoleColor(user['role'] ?? 'parishioner')
+                                  : Colors.grey,
+                              child: Text(
+                                (user['firstName'] ?? 'U')[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
+                            ),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                if (!isActive)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Deactivated',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.red.shade700,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text(user['email'] ?? ''),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Role: ${Roles.getRoleDisplayName(user['role'] ?? 'parishioner')}',
+                                      style: TextStyle(
+                                        color: _getRoleColor(user['role'] ?? 'parishioner'),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (!isActive) ...[
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '• Inactive',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.red.shade400,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: _isSelectionMode
+                                ? Icon(
+                                    isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                                    color: isSelected ? Colors.blue : Colors.grey,
+                                  )
+                                : null,
                           ),
-                          trailing: _isSelectionMode
-                              ? Icon(
-                                  isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                                  color: isSelected ? Colors.blue : Colors.grey,
-                                )
-                              : null,
                         ),
                       );
                     },
