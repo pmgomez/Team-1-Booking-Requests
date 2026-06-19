@@ -121,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // NOTE: The accidental @override tag that was here has been removed!
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -385,14 +386,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, '/admin-users');
                   },
                 ),
-              // ListTile(
-              //   leading: const Icon(Icons.description),
-              //   title: const Text('Sacramental Records'),
-              //   onTap: () {
-              //     Navigator.pop(context);
-              //     Navigator.pushNamed(context, '/admin-records');
-              //   },
-              // ),
             ],
             const Divider(),
             ListTile(
@@ -431,12 +424,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             isAdmin
                 ? 'Manage sacraments, bookings, and parish operations across ${isDioceseLevel ? 'all parishes' : 'your parish'}.'
-                  '\nSelect a service below to begin.'
+                '\nSelect a service below to begin.'
                 : isPriest
-                    ? 'View your schedule of assigned sacraments and bookings.'
-                      '\nClick below to see your monthly schedule.'
-                    : 'Book sacraments and mass intentions across all parishes in the diocese.'
-                      '\nSelect a service below to begin your booking request.',
+                ? 'View your schedule of assigned sacraments and bookings.'
+                '\nClick below to see your monthly schedule.'
+                : 'Book sacraments and mass intentions across all parishes in the diocese.'
+                '\nSelect a service below to begin your booking request.',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16),
           ),
@@ -595,72 +588,72 @@ class _HomeScreenState extends State<HomeScreen> {
             _isLoadingStats
                 ? const Center(child: CircularProgressIndicator())
                 : _totalBookings > 0
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Your Bookings',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.3,
-                            ),
-                            itemCount: _bookingStats.entries.where((e) => e.key != 'total' && e.value > 0).length,
-                            itemBuilder: (context, index) {
-                              final entries = _bookingStats.entries.where((e) => e.key != 'total' && e.value > 0).toList();
-                              if (index >= entries.length) return const SizedBox.shrink();
-                              final entry = entries[index];
-                              final status = entry.key;
-                              final count = entry.value;
-                              Color color;
-                              IconData icon;
-                              switch (status) {
-                                case 'pending':
-                                  color = Colors.orange;
-                                  icon = Icons.pending_actions;
-                                  break;
-                                case 'approved':
-                                  color = Colors.green;
-                                  icon = Icons.check_circle;
-                                  break;
-                                case 'declined':
-                                  color = Colors.red;
-                                  icon = Icons.cancel;
-                                  break;
-                                case 'completed':
-                                  color = Colors.blue;
-                                  icon = Icons.done_all;
-                                  break;
-                                default:
-                                  color = Colors.grey;
-                                  icon = Icons.info;
-                              }
-                              return _buildStatCard(
-                                title: _capitalize(status),
-                                value: count.toString(),
-                                icon: icon,
-                                color: color,
-                              );
-                            },
-                          ),
-                        ],
-                      )
-                    : const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('You have no bookings yet.'),
-                        ),
-                      ),
+                ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your Bookings',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.3,
+                  ),
+                  itemCount: _bookingStats.entries.where((e) => e.key != 'total' && e.value > 0).length,
+                  itemBuilder: (context, index) {
+                    final entries = _bookingStats.entries.where((e) => e.key != 'total' && e.value > 0).toList();
+                    if (index >= entries.length) return const SizedBox.shrink();
+                    final entry = entries[index];
+                    final status = entry.key;
+                    final count = entry.value;
+                    Color color;
+                    IconData icon;
+                    switch (status) {
+                      case 'pending':
+                        color = Colors.orange;
+                        icon = Icons.pending_actions;
+                        break;
+                      case 'approved':
+                        color = Colors.green;
+                        icon = Icons.check_circle;
+                        break;
+                      case 'declined':
+                        color = Colors.red;
+                        icon = Icons.cancel;
+                        break;
+                      case 'completed':
+                        color = Colors.blue;
+                        icon = Icons.done_all;
+                        break;
+                      default:
+                        color = Colors.grey;
+                        icon = Icons.info;
+                    }
+                    return _buildStatCard(
+                      title: _capitalize(status),
+                      value: count.toString(),
+                      icon: icon,
+                      color: color,
+                    );
+                  },
+                ),
+              ],
+            )
+                : const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('You have no bookings yet.'),
+              ),
+            ),
             const SizedBox(height: 24),
           ],
 
@@ -731,7 +724,7 @@ class _HomeScreenState extends State<HomeScreen> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: services.length,
               gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
