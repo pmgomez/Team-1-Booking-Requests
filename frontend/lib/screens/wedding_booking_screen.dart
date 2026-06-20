@@ -663,6 +663,8 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 450),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
@@ -930,6 +932,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

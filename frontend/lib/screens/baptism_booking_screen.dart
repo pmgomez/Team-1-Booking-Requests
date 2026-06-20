@@ -315,8 +315,11 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Center(
+            child:ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 450),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
                 "Fill out the form below to submit your booking request. All fields marked with * are required.",
@@ -629,6 +632,8 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
               const SizedBox(height: 20),
             ],
           ),
+        ),
+      ),
         ),
       ),
     );
