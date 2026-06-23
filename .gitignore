@@ -141,3 +141,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vercel
 .env*.local
+
+# Flutter generated dependency metadata
+.flutter-plugins-dependencies
