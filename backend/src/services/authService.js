@@ -304,6 +304,10 @@ class AuthService {
       }
     }
 
+    if (updateData.phone && !/^(\+63|0)9\d{9}$/.test(updateData.phone)) {
+      throw new Error('Invalid Philippine phone number');
+    }
+
     await user.update(updateData);
     return user.toSafeObject();
   }
