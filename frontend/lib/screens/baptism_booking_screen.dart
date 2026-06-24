@@ -42,28 +42,25 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
   void initState() {
     super.initState();
     // Load parishes for selection
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final parishProvider = Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final priestProvider = Provider.of<PriestProvider>(context, listen: false);
       
-      parishProvider.loadAllParishes();
+      await parishProvider.loadAllParishes();
       
+      final userParishId = authProvider.currentUser?.preferredParishId;
+
       // Default to user's preferred parish if available
-      if (authProvider.currentUser?.preferredParishId != null) {
+      if (userParishId != null) {
         // This will be set once parishes are loaded
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final userParishId = authProvider.currentUser!.preferredParishId;
-          final userParish = parishProvider.parishes
-              .where((p) => p.id == userParishId)
-              .firstOrNull;
-          if (userParish != null) {
-            parishProvider.selectParish(userParish);
-            if (userParishId != null) {
-              priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
-            }
-          }
-        });
+        final userParish = parishProvider.parishes
+            .where((p) => p.id == userParishId)
+            .firstOrNull;
+        if (userParish != null) {
+          parishProvider.selectParish(userParish);
+          await priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
+        }
       }
     });
   }
