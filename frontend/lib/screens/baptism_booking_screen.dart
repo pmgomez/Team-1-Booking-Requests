@@ -440,6 +440,10 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
                         final parish = parishProvider.parishes
                             .firstWhere((p) => p.id == value);
                         parishProvider.selectParish(parish);
+                        Provider.of<PriestProvider>(
+                            context,
+                            listen: false,
+                          ).loadPriestsByParish(parish.id!);
                       },
                       validator: (value) =>
                           value == null ? "Please select a parish" : null,
@@ -493,14 +497,8 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                Consumer2<ParishProvider, PriestProvider>(
-                  builder: (context, parishProvider, priestProvider, _) {
-                    if (parishProvider.selectedParish != null) {
-                      priestProvider.loadPriestsByParish(
-                        parishProvider.selectedParish!.id!,
-                      );
-                    }
-                    
+                Consumer<PriestProvider>(
+                  builder: (context, priestProvider, _) {
                     return DropdownButtonFormField<int>(
                       value: _selectedPriestId,
                       decoration: const InputDecoration(
