@@ -198,13 +198,24 @@ exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const profileData = req.body;
-    
-    const updatedUser = await authService.updateUserProfile(userId, profileData);
-    
-    res.json({
-      message: 'Profile updated successfully',
-      user: updatedUser,
-    });
+     
+    try {
+      const updatedUser = await authService.updateUserProfile(userId, profileData);
+      
+      res.json({
+        message: 'Profile updated successfully',
+        user: updatedUser,
+      });
+    }
+    catch (error) {
+      if (error.message === 'Invalid Philippine phone number') {
+        return res.status(400).json({
+          error: 'Invalid Philippine phone number',
+          message: error.message
+        });
+      }
+      throw error;
+    }
   } catch (error) {
     next(error);
   }
@@ -233,6 +244,11 @@ exports.changePassword = async (req, res, next) => {
       if (error.message === 'Current password is incorrect') {
         return res.status(400).json({
           error: 'Current password is incorrect',
+          message: error.message
+        });
+      } else if (error.message === 'New password cannot be the same as old password') {
+        return res.status(400).json({
+          error: 'Password reuse not allowed',
           message: error.message
         });
       } else if (error.message === 'User not found') {

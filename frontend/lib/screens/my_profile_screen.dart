@@ -253,6 +253,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       hintText: 'Enter phone number',
                       keyboardType: TextInputType.phone,
                       prefixIcon: Icons.phone_outlined,
+                      validator: Validators.phoneValidator,
                     ),
 
                     const SizedBox(height: 30),

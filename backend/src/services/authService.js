@@ -195,6 +195,12 @@ class AuthService {
       throw new Error('Current password is incorrect');
     }
 
+    // Prevent password reuse
+    const isSamePassword = await user.verifyPassword(newPassword);
+    if (isSamePassword) {
+      throw new Error('New password cannot be the same as old password');
+    }
+
     // Update password
     await user.update({ password: newPassword });
 
@@ -302,6 +308,10 @@ class AuthService {
       if (profileData[field] !== undefined) {
         updateData[field] = profileData[field];
       }
+    }
+
+    if (updateData.phone && !/^(\+63|0)9\d{9}$/.test(updateData.phone)) {
+      throw new Error('Invalid Philippine phone number');
     }
 
     await user.update(updateData);

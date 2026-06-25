@@ -662,8 +662,8 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
           key: _formKey,
           child: Center(
             child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
-                child: Column(
+              constraints: const BoxConstraints(maxWidth: 450),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
@@ -710,9 +710,9 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                           ),
                           items: parishProvider.parishes
                               .map((parish) => DropdownMenuItem(
-                                    value: parish.id,
-                                    child: Text(parish.name),
-                                  ))
+                            value: parish.id,
+                            child: Text(parish.name),
+                          ))
                               .toList(),
                           onChanged: (value) {
                             final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -747,7 +747,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                         );
                         if (pickedDate != null) {
                           _preferredDateController.text =
-                              "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                          "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
                         }
                       },
                     ),
@@ -768,7 +768,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                         );
                         if (pickedTime != null) {
                           _preferredTimeController.text =
-                              "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                          "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
                         }
                       },
                     ),
@@ -791,7 +791,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                         );
                         if (pickedDate != null) {
                           _seminarScheduleController.text =
-                              "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                          "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
                         }
                       },
                     ),
@@ -912,13 +912,13 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                           ),
                           child: weddingProvider.isLoading
                               ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
                               : const Text("Submit Booking", style: TextStyle(fontSize: 16)),
                         ),
                       );
@@ -929,7 +929,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
               ),
             ),
           ),
-      ),
+        ),
       ),
     );
   }
