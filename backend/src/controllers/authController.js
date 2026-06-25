@@ -246,6 +246,11 @@ exports.changePassword = async (req, res, next) => {
           error: 'Current password is incorrect',
           message: error.message
         });
+      } else if (error.message === 'New password cannot be the same as old password') {
+        return res.status(400).json({
+          error: 'Password reuse not allowed',
+          message: error.message
+        });
       } else if (error.message === 'User not found') {
         return res.status(404).json({
           error: 'User not found',
