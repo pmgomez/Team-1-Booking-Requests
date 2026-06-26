@@ -718,6 +718,10 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                             final authProvider = Provider.of<AuthProvider>(context, listen: false);
                             final parish = parishProvider.parishes
                                 .firstWhere((p) => p.id == value);
+                            // Clear any previously selected priest
+                            setState(() {
+                              _selectedPriestId = null;
+                            });
                             parishProvider.selectParish(parish);
                             Provider.of<PriestProvider>(
                                 context,

@@ -697,6 +697,10 @@ class _ConfirmationBookingScreenState
                           final authProvider = Provider.of<AuthProvider>(context, listen: false);
                           final parish = parishProvider.parishes
                               .firstWhere((p) => p.id == value);
+                          // Clear any previously selected priest
+                          setState(() {
+                            _selectedPriestId = null;
+                          });
                           parishProvider.selectParish(parish);
                           Provider.of<PriestProvider>(
                               context,
@@ -784,8 +788,11 @@ class _ConfirmationBookingScreenState
                   const SizedBox(height: 12),
                   Consumer<PriestProvider>(
                     builder: (context, priestProvider, _) {
+                      final validPriestId = _selectedPriestId != null && 
+                          priestProvider.priests.any((p) => p.id == _selectedPriestId) 
+                          ? _selectedPriestId : null;
                       return DropdownButtonFormField<int>(
-                        value: _selectedPriestId,
+                        value: validPriestId,
                         decoration: const InputDecoration(
                           labelText: "Preferred Priest (Optional) - Subject to availability",
                           border: OutlineInputBorder(),
