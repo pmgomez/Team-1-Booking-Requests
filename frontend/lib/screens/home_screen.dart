@@ -798,7 +798,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: isWeb ? 13 : 10,
                                 color: Colors.grey.shade600,
                               ),
-                              maxLines: isWeb ? 2 : 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
