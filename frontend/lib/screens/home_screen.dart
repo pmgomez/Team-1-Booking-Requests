@@ -99,7 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
             'cancelled': 0,
           };
           for (var booking in bookings) {
-            final status = (booking['status'] ?? 'pending').toString().toLowerCase();
+            final status =
+                (booking['status'] ?? 'pending').toString().toLowerCase();
             if (stats.containsKey(status)) {
               stats[status] = stats[status]! + 1;
             } else {
@@ -250,11 +251,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxLines: 2,
                   ),
                   // Show parish info for non-diocese users
-                  if (authProvider.currentUser?.effectiveParishId != null && !isDioceseLevel)
+                  if (authProvider.currentUser?.effectiveParishId != null &&
+                      !isDioceseLevel)
                     Consumer<ParishProvider>(
                       builder: (context, parishProvider, _) {
                         final parish = parishProvider.parishes
-                            .where((p) => p.id == authProvider.currentUser?.effectiveParishId)
+                            .where((p) =>
+                                p.id ==
+                                authProvider.currentUser?.effectiveParishId)
                             .firstOrNull;
                         if (parish != null) {
                           return Padding(
@@ -431,8 +435,8 @@ class _HomeScreenState extends State<HomeScreen> {
             isAdmin
                 ? 'Manage sacraments, bookings, and parish operations across ${isDioceseLevel ? 'all parishes' : 'your parish'}.\nSelect a service below to begin.'
                 : isPriest
-                ? 'View your schedule of assigned sacraments and bookings.\nClick below to see your monthly schedule.'
-                : 'Book sacraments and mass intentions across all parishes in the diocese.\nSelect a service below to begin your booking request.',
+                    ? 'View your schedule of assigned sacraments and bookings.\nClick below to see your monthly schedule.'
+                    : 'Book sacraments and mass intentions across all parishes in the diocese.\nSelect a service below to begin your booking request.',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16),
           ),
@@ -507,7 +511,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ElevatedButton.icon(
                           onPressed: () {
-                            Navigator.pushNamed(context, '/admin-mass-intentions');
+                            Navigator.pushNamed(
+                                context, '/admin-mass-intentions');
                           },
                           icon: const Icon(Icons.book, size: 20),
                           label: const Text('Mass Intentions'),
@@ -518,7 +523,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         ElevatedButton.icon(
                           onPressed: () {
-                            Navigator.pushNamed(context, '/admin-mass-schedule');
+                            Navigator.pushNamed(
+                                context, '/admin-mass-schedule');
                           },
                           icon: const Icon(Icons.schedule, size: 20),
                           label: const Text('Mass Schedule'),
@@ -591,74 +597,82 @@ class _HomeScreenState extends State<HomeScreen> {
             _isLoadingStats
                 ? const Center(child: CircularProgressIndicator())
                 : _totalBookings > 0
-                ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Your Bookings',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 3.0,
-                  ),
-                  itemCount: 5,
-                  itemBuilder: (context, index) {
-                    final statuses = ['pending', 'approved', 'declined', 'completed', 'cancelled'];
-                    final status = statuses[index];
-                    final count = _bookingStats[status] ?? 0;
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Bookings',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 3.0,
+                            ),
+                            itemCount: 5,
+                            itemBuilder: (context, index) {
+                              final statuses = [
+                                'pending',
+                                'approved',
+                                'declined',
+                                'completed',
+                                'cancelled'
+                              ];
+                              final status = statuses[index];
+                              final count = _bookingStats[status] ?? 0;
 
-                    Color color;
-                    IconData icon;
-                    switch (status) {
-                      case 'pending':
-                        color = Colors.orange;
-                        icon = Icons.pending_actions;
-                        break;
-                      case 'approved':
-                        color = Colors.green;
-                        icon = Icons.check_circle;
-                        break;
-                      case 'declined':
-                        color = Colors.red;
-                        icon = Icons.cancel;
-                        break;
-                      case 'completed':
-                        color = Colors.blue;
-                        icon = Icons.done_all;break;
+                              Color color;
+                              IconData icon;
+                              switch (status) {
+                                case 'pending':
+                                  color = Colors.orange;
+                                  icon = Icons.pending_actions;
+                                  break;
+                                case 'approved':
+                                  color = Colors.green;
+                                  icon = Icons.check_circle;
+                                  break;
+                                case 'declined':
+                                  color = Colors.red;
+                                  icon = Icons.cancel;
+                                  break;
+                                case 'completed':
+                                  color = Colors.blue;
+                                  icon = Icons.done_all;
+                                  break;
                                 case 'cancelled':
                                   color = Colors.blueGrey;
                                   icon = Icons.info;
-                        break;
-                      default:
-                        color = Colors.grey;
-                        icon = Icons.info;
-                    }
-                    return _buildStatCard(
-                      title: _capitalize(status),
-                      value: count.toString(),
-                      icon: icon,
-                      color: color,
-                    );
-                  },
-                ),
-              ],
-            )
-                : const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('You have no bookings yet.'),
-              ),
-            ),
+                                  break;
+                                default:
+                                  color = Colors.grey;
+                                  icon = Icons.info;
+                              }
+                              return _buildStatCard(
+                                title: _capitalize(status),
+                                value: count.toString(),
+                                icon: icon,
+                                color: color,
+                              );
+                            },
+                          ),
+                        ],
+                      )
+                    : const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('You have no bookings yet.'),
+                        ),
+                      ),
             const SizedBox(height: 24),
           ],
 
@@ -673,7 +687,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.calendar_month, color: Colors.purple.shade700, size: 28),
+                        Icon(Icons.calendar_month,
+                            color: Colors.purple.shade700, size: 28),
                         const SizedBox(width: 12),
                         const Text(
                           'My Schedule',
@@ -724,71 +739,76 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: services.length,
-              gridDelegate:
-              const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 280,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 2.5,
-              ),
-              itemBuilder: (context, index) {
-                final service = services[index];
-                final bool isWeb = MediaQuery.of(context).size.width > 600;
+            LayoutBuilder(builder: (context, constraints) {
+              final bool isWeb = MediaQuery.of(context).size.width > 600;
+              int crossAxisCount = (constraints.maxWidth / 280).floor();
+              crossAxisCount = crossAxisCount.clamp(2, 4);
 
-                return InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, service["route"]!);
-                  },
-                  child: Container(
-                    padding: EdgeInsets.all(isWeb ? 16 : 6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          getSacramentIcon(_getServiceSacramentType(service["title"]!)),
-                          size: isWeb ? 32 : 20,
-                          color: Colors.blue.shade700,
-                        ),
-                        SizedBox(height: isWeb ? 8 : 2),
-                        Flexible(
-                          child: Text(
-                            service["title"]!,
-                            style: TextStyle(
-                              fontSize: isWeb ? 18 : 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: services.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: isWeb ? 160 : 110,
+                ),
+                itemBuilder: (context, index) {
+                  final service = services[index];
+
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, service["route"]!);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(isWeb ? 16 : 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            getSacramentIcon(
+                                _getServiceSacramentType(service["title"]!)),
+                            size: isWeb ? 32 : 20,
+                            color: Colors.blue.shade700,
                           ),
-                        ),
-                        SizedBox(height: isWeb ? 4 : 1),
-                        Flexible(
-                          child: Text(
-                            service["desc"]!,
-                            style: TextStyle(
-                              fontSize: isWeb ? 13 : 10,
-                              color: Colors.grey.shade600,
+                          SizedBox(height: isWeb ? 8 : 2),
+                          Flexible(
+                            child: Text(
+                              service["title"]!,
+                              style: TextStyle(
+                                fontSize: isWeb ? 18 : 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: isWeb ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                          SizedBox(height: isWeb ? 4 : 1),
+                          Flexible(
+                            child: Text(
+                              service["desc"]!,
+                              style: TextStyle(
+                                fontSize: isWeb ? 13 : 10,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: isWeb ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              );
+            })
           ],
         ],
       ),
