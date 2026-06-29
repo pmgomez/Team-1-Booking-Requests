@@ -244,11 +244,19 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   ),
                 )
               : _bookings.isEmpty
-                  ? const Center(
-                      child: Text(
+                  ? Center(
+        //add an icon to make it visually engaging - s vitug
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.event_busy, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          const Text(
                         'No bookings found.\nStart by booking a sacrament!',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                     ],
                       ),
                     )
                   : RefreshIndicator(

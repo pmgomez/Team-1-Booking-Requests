@@ -609,7 +609,18 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _bookings.isEmpty
-                    ? const Center(child: Text('No bookings found'))
+        //fix this for the admin to have their filter for the empty state - s vitug
+                    ? const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.filter_list_off, size:64, color: Colors.grey),
+                                SizedBox(height:16),
+                                Text('No bookings found with current filters'),
+                              ]
+                            ),
+                          )
+
                     : RefreshIndicator(
                         onRefresh: _loadBookings,
                         child: ListView.builder(
