@@ -18,7 +18,6 @@ import 'providers/mass_schedule_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/parish_selection_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -66,25 +65,24 @@ class MyApp extends StatelessWidget {
         return MaterialPageRoute(builder: (_) => LoginScreen());
       case '/home':
         return MaterialPageRoute(builder: (_) => HomeScreen());
-      case '/parish-selection':
-        return MaterialPageRoute(builder: (_) => ParishSelectionScreen());
       case '/register':
         return MaterialPageRoute(builder: (_) => RegisterScreen());
       case '/baptism-booking':
         return MaterialPageRoute(builder: (_) => BaptismBookingScreen());
-      case '/baptism-detail': {
-        final args = settings.arguments as Map<String, dynamic>? ?? {};
-        print('=== NAVIGATING TO BAPTISM DETAIL ===');
-        print('Arguments: $args');
-        print('ID: ${args['id']}');
-        print('fromStatusButton: ${args['fromStatusButton']}');
-        return MaterialPageRoute(
-          builder: (_) => BaptismDetailScreen(
-            baptismId: args['id'] as int?,
-            fromStatusButton: args['fromStatusButton'] as bool? ?? false,
-          ),
-        );
-      }
+      case '/baptism-detail':
+        {
+          final args = settings.arguments as Map<String, dynamic>? ?? {};
+          print('=== NAVIGATING TO BAPTISM DETAIL ===');
+          print('Arguments: $args');
+          print('ID: ${args['id']}');
+          print('fromStatusButton: ${args['fromStatusButton']}');
+          return MaterialPageRoute(
+            builder: (_) => BaptismDetailScreen(
+              baptismId: args['id'] as int?,
+              fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+            ),
+          );
+        }
       case '/wedding-booking':
         return MaterialPageRoute(builder: (_) => WeddingBookingScreen());
       case '/confirmation-booking':
@@ -97,43 +95,48 @@ class MyApp extends StatelessWidget {
         return MaterialPageRoute(builder: (_) => AnointingTheSickScreen());
       case '/mass-intention':
         return MaterialPageRoute(builder: (_) => MassIntentionScreen());
-       case '/mass-intention-detail': {
-         final args = settings.arguments as Map<String, dynamic>? ?? {};
-         return MaterialPageRoute(
-           builder: (_) => MassIntentionDetailScreen(
-             massIntentionId: args['id'] as int?,
-             fromStatusButton: args['fromStatusButton'] as bool? ?? false,
-           ),
-         );
-       }
-       case '/confirmation-detail': {
-         final args = settings.arguments as Map<String, dynamic>? ?? {};
-         return MaterialPageRoute(
-           builder: (_) => ConfirmationDetailScreen(
-             confirmationId: args['id'] as int?,
-             fromStatusButton: args['fromStatusButton'] as bool? ?? false,
-           ),
-         );
-       }
-       case '/anointing-sick-detail': {
-         final args = settings.arguments as Map<String, dynamic>? ?? {};
-         return MaterialPageRoute(
-           builder: (_) => AnointingSickDetailScreen(
-             anointingSickId: args['id'] as int?,
-             fromStatusButton: args['fromStatusButton'] as bool? ?? false,
-           ),
-         );
-       }
-       case '/reconciliation-detail': {
-         final args = settings.arguments as Map<String, dynamic>? ?? {};
-         return MaterialPageRoute(
-           builder: (_) => ReconciliationDetailScreen(
-             reconciliationId: args['id'] as int?,
-             fromStatusButton: args['fromStatusButton'] as bool? ?? false,
-           ),
-         );
-       }
-        case '/funeral-mass-detail': {
+      case '/mass-intention-detail':
+        {
+          final args = settings.arguments as Map<String, dynamic>? ?? {};
+          return MaterialPageRoute(
+            builder: (_) => MassIntentionDetailScreen(
+              massIntentionId: args['id'] as int?,
+              fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+            ),
+          );
+        }
+      case '/confirmation-detail':
+        {
+          final args = settings.arguments as Map<String, dynamic>? ?? {};
+          return MaterialPageRoute(
+            builder: (_) => ConfirmationDetailScreen(
+              confirmationId: args['id'] as int?,
+              fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+            ),
+          );
+        }
+      case '/anointing-sick-detail':
+        {
+          final args = settings.arguments as Map<String, dynamic>? ?? {};
+          return MaterialPageRoute(
+            builder: (_) => AnointingSickDetailScreen(
+              anointingSickId: args['id'] as int?,
+              fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+            ),
+          );
+        }
+      case '/reconciliation-detail':
+        {
+          final args = settings.arguments as Map<String, dynamic>? ?? {};
+          return MaterialPageRoute(
+            builder: (_) => ReconciliationDetailScreen(
+              reconciliationId: args['id'] as int?,
+              fromStatusButton: args['fromStatusButton'] as bool? ?? false,
+            ),
+          );
+        }
+      case '/funeral-mass-detail':
+        {
           final args = settings.arguments as Map<String, dynamic>? ?? {};
           return MaterialPageRoute(
             builder: (_) => FuneralMassDetailScreen(
@@ -142,7 +145,8 @@ class MyApp extends StatelessWidget {
             ),
           );
         }
-        case '/wedding-detail': {
+      case '/wedding-detail':
+        {
           final args = settings.arguments as Map<String, dynamic>? ?? {};
           return MaterialPageRoute(
             builder: (_) => WeddingDetailScreen(
@@ -151,7 +155,8 @@ class MyApp extends StatelessWidget {
             ),
           );
         }
-        case '/eucharist-detail': {
+      case '/eucharist-detail':
+        {
           final args = settings.arguments as Map<String, dynamic>? ?? {};
           return MaterialPageRoute(
             builder: (_) => EucharistDetailScreen(
@@ -160,8 +165,8 @@ class MyApp extends StatelessWidget {
             ),
           );
         }
-        case '/funeral-mass':
-         return MaterialPageRoute(builder: (_) => FuneralMassScreen());
+      case '/funeral-mass':
+        return MaterialPageRoute(builder: (_) => FuneralMassScreen());
       case '/admin-dashboard':
         return MaterialPageRoute(builder: (_) => AdminDashboardScreen());
       case '/admin-bookings':
@@ -173,9 +178,11 @@ class MyApp extends StatelessWidget {
       case '/admin-records':
         return MaterialPageRoute(builder: (_) => AdminRecordsScreen());
       case '/admin-mass-intentions':
-        return MaterialPageRoute(builder: (_) => const AdminMassIntentionsScreen());
+        return MaterialPageRoute(
+            builder: (_) => const AdminMassIntentionsScreen());
       case '/admin-mass-schedule':
-        return MaterialPageRoute(builder: (_) => const AdminMassScheduleScreen());
+        return MaterialPageRoute(
+            builder: (_) => const AdminMassScheduleScreen());
       case '/change-password':
         return MaterialPageRoute(builder: (_) => ChangePasswordScreen());
       case '/forgot-password':
