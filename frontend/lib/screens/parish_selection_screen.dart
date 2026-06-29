@@ -14,6 +14,10 @@ class ParishSelectionScreen extends StatefulWidget {
 }
 
 class _ParishSelectionScreenState extends State<ParishSelectionScreen> {
+
+  //1. ADDED: The state lock to prevent double-taps
+  bool _isSelecting = false;
+
   @override
   void initState() {
     super.initState();
@@ -122,9 +126,22 @@ class _ParishSelectionScreenState extends State<ParishSelectionScreen> {
                           ],
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () {
+                        //2. MODIFIED: The locked onTap function
+                        // 2. MODIFIED: The locked onTap function
+                        onTap: () async {
+                          // If already processing a tap, ignore subsequent taps
+                          if (_isSelecting) return;
+
+                          // Lock the UI
+                          setState(() {
+                            _isSelecting = true;
+                          });
+
+                          // Update the provider state
                           parishProvider.selectParish(parish);
-                          // Navigate back or to next screen
+
+                          // 3. ADDED: Context safety check before navigation
+                          if (!context.mounted) return;
                           Navigator.pop(context, parish);
                         },
                       ),
