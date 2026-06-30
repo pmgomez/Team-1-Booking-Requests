@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Flutter generated dependency metadata
 .flutter-plugins-dependencies
+
+# editorconfig
+.editorconfig
