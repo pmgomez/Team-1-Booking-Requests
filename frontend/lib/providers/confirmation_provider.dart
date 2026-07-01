@@ -58,7 +58,7 @@ class ConfirmationProvider extends ChangeNotifier {
     int? priestId,
     List<Map<String, dynamic>>? notes,
     Map<String, dynamic>? baptismalCertificate,
-    Map<String, dynamic>? birthCertificate,
+    Map<String, dynamic>? birthCertificate, required String sponsorName,
   }) async {
     _setLoading(true);
     _setErrorMessage(null);

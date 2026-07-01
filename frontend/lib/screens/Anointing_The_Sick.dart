@@ -149,9 +149,11 @@ class _AnointingTheSickScreenState extends State<AnointingTheSickScreen> {
         locationAddress: _locationAddressController.text.trim().isEmpty
             ? null
             : _locationAddressController.text.trim(),
+
+        //QA FIX: Added trim method inside formatDate
         preferredDate: _preferredDateController.text.isEmpty
             ? null
-            : formatDate(_preferredDateController.text),
+            : formatDate(_preferredDateController.text.trim()),
         preferredTimeSlot: _preferredTimeController.text.trim().isEmpty
             ? null
             : _preferredTimeController.text.trim(),

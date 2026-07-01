@@ -246,11 +246,15 @@ class _FuneralMassDetailScreenState extends State<FuneralMassDetailScreen> {
         representativeName: _representativeNameController.text.trim(),
         contactEmail: _contactEmailController.text.trim().isEmpty ? null : _contactEmailController.text.trim(),
         contactPhone: _contactPhoneController.text.trim(),
-        wakeStartDate: _wakeStartDateController.text.trim().isEmpty ? null : _wakeStartDateController.text,
-        wakeEndDate: _wakeEndDateController.text.trim().isEmpty ? null : _wakeEndDateController.text,
+
+        //QA fix: Ensure the final payload is actually trimmed.
+        wakeStartDate: _wakeStartDateController.text.trim().isEmpty ? null : _wakeStartDateController.text.trim(),
+        wakeEndDate: _wakeEndDateController.text.trim().isEmpty ? null : _wakeEndDateController.text.trim(),
         wakeLocation: _wakeLocationController.text.trim().isEmpty ? null : _wakeLocationController.text.trim(),
-        preferredDate: _preferredDateController.text,
-        preferredTimeSlot: _preferredTimeController.text,
+
+        //QA fix: trimmed required date and time fields
+        preferredDate: _preferredDateController.text.trim(),
+        preferredTimeSlot: _preferredTimeController.text.trim(),
         preferredPriest: selectedPriestName,
         notes: notesToAdd,
       );

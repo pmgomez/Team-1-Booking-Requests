@@ -336,7 +336,9 @@ class _EucharistScreenState extends State<EucharistScreen> {
         motherName: _motherNameController.text.trim(),
         contactEmail: _contactEmailController.text.trim(),
         contactPhone: _contactPhoneController.text.trim(),
-        preferredDate: formatDate(_preferredDateController.text),
+
+        //QA Fix: Added .trim() in this code for the preferred date
+        preferredDate: formatDate(_preferredDateController.text.trim()),
         preferredTimeSlot: _preferredTimeController.text.trim(),
         priestId: _selectedPriestId,
         notes: notesToAdd,

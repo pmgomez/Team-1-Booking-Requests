@@ -120,7 +120,9 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
         penitentName: _penitentNameController.text.trim(),
         contactEmail: _contactEmailController.text.trim(),
         contactPhone: _contactPhoneController.text.trim(),
-        preferredDate: formatDate(_preferredDateController.text),
+
+        //QA Fix: Add the trim method inside the format Date
+        preferredDate: formatDate(_preferredDateController.text.trim()),
         preferredTimeSlot: _preferredTimeController.text.trim(),
         notes: notesToAdd,
       );

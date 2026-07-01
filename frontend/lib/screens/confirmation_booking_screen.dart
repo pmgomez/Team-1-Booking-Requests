@@ -328,12 +328,19 @@ class _ConfirmationBookingScreenState
         confirmandName: _confirmandNameController.text.trim(),
         fatherName: _fatherNameController.text.trim(),
         motherName: _motherNameController.text.trim(),
+
+        //add the missing sponsor payload
+        sponsorName: _sponsorController.text.trim(),
+
         contactEmail: _contactEmailController.text.trim().isNotEmpty
             ? _contactEmailController.text.trim()
             : authProvider.currentUser!.email,
         contactPhone: _contactPhoneController.text.trim(),
-        preferredDate: formatDate(_preferredDateController.text),
-        preferredTimeSlot: _preferredTimeController.text,
+
+        //added the trim method to date and time
+        preferredDate: formatDate(_preferredDateController.text.trim()),
+        preferredTimeSlot: _preferredTimeController.text.trim(),
+
         priestId: _selectedPriestId,
         notes: notesToAdd,
         baptismalCertificate: _uploadedBaptismalData,

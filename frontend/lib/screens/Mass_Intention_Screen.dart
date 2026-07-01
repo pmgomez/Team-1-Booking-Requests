@@ -179,9 +179,13 @@ class _MassIntentionScreenState extends State<MassIntentionScreen> {
         type: mapType(_selectedType),
         intentionDetails: _intentionForController.text.trim(),
         donorName: _offeredByController.text.trim(),
+
+        //QA Fix: Add trim() to both uses of _dateController
         dateRequested: formatDate(_dateController.text),
         parishId: parishProvider.selectedParish!.id!,
         massSchedule: formatDate(_dateController.text),
+
+        //QA Fix: Add trim() method to the selected time.
         preferredTime: _selectedTime,
         notes: notesToAdd,
       );

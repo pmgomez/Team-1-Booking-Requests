@@ -175,6 +175,7 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
     super.dispose();
   }
 
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -227,16 +228,17 @@ class _BaptismBookingScreenState extends State<BaptismBookingScreen> {
         ];
       }
 
+      //implemented the trim method
       final success = await baptismProvider.createBaptismBooking(
         parishId: parishProvider.selectedParish!.id!,
         childFullName: _childNameController.text.trim(),
-        dateOfBirth: formatDate(_dobController.text),
+        dateOfBirth: formatDate(_dobController.text.trim()), // Added .trim()
         fatherName: _fatherNameController.text.trim(),
         motherName: _motherNameController.text.trim(),
         contactEmail: authProvider.currentUser!.email,
         contactPhone: _contactController.text.trim(),
-        preferredDate: formatDate(_preferredDateController.text),
-        preferredTimeSlot: _preferredTimeController.text,
+        preferredDate: formatDate(_preferredDateController.text.trim()), // Added .trim()
+        preferredTimeSlot: _preferredTimeController.text.trim(), // Added .trim()
         priestId: _selectedPriestId,
         notes: notesToAdd,
         godparents: godparents.isEmpty ? null : godparents,

@@ -527,6 +527,7 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         ];
       }
 
+      //implemented trim method in this code -
       final success = await weddingProvider.createWeddingBooking(
         token: authProvider.token!,
         parishId: parishProvider.selectedParish!.id!,
@@ -534,8 +535,8 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         brideFullName: _brideNameController.text.trim(),
         contactEmail: authProvider.currentUser!.email,
         contactPhone: _contactController.text.trim(),
-        preferredDate: formatDate(_preferredDateController.text),
-        preferredTimeSlot: formatTime(_preferredTimeController.text),
+        preferredDate: formatDate(_preferredDateController.text.trim()), // Added .trim() here
+        preferredTimeSlot: formatTime(_preferredTimeController.text.trim()), // Added .trim() here
         seminarSchedule: _seminarScheduleController.text.trim().isEmpty
             ? null
             : _seminarScheduleController.text.trim(),
