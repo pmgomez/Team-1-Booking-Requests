@@ -125,28 +125,34 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
 
     setState(() => _isSaving = true);
 
+    //QA FIX: Dynamic role check for notes
     List<Map<String, dynamic>>? notesToAdd;
     if (_notesController.text.trim().isNotEmpty) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser =  authProvider.currentUser;
+      final isParishioner = currentUser?.role == 'parishioner'; //for logic checking
       notesToAdd = [
         {
-          'author': 'parishioner',
+          'author': isParishioner ? 'parishioner' : 'admin',
           'content': _notesController.text.trim(),
           'authorId': authProvider.currentUser!.id,
         }
       ];
     }
 
+    //QA FIX: Added .trim() to date and time fields
     final result = await _reconciliationService.updateReconciliationBooking(
       token: token,
       id: widget.reconciliationId!,
       penitentName: _penitentNameController.text.trim(),
       contactEmail: _contactEmailController.text.trim(),
       contactPhone: _contactPhoneController.text.trim(),
-      preferredDate: _preferredDateController.text,
-      preferredTimeSlot: _preferredTimeController.text,
+      preferredDate: _preferredDateController.text.trim(),
+      preferredTimeSlot: _preferredTimeController.text.trim(),
       notes: notesToAdd,
     );
+
+    //QA FIX: Mounted check to prevent crash if user navigates away
+    if (!mounted) return;
 
     setState(() => _isSaving = false);
 
@@ -178,6 +184,9 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
     );
 
     if (mounted) {
+      //QA FIX: Add mounted check here
+      if (!mounted) return;
+
       if (result.success) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Booking marked as $status')));
         Navigator.pop(context, true);
@@ -437,10 +446,11 @@ class _ReconciliationDetailScreenState extends State<ReconciliationDetailScreen>
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            //change from "Current Status" to "Status" for visual alignment
             SizedBox(
               width: 120,
               child: const Text(
-                'Current Status',
+                'Status', //changed from 'Current Status'
                 style: TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
