@@ -57,7 +57,9 @@ class _AdminMassIntentionsScreenState extends State<AdminMassIntentionsScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeDefaults();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeDefaults();
+    });
   }
 
   Future<void> _initializeDefaults() async {
