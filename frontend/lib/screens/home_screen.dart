@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -608,60 +609,70 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 3.0,
-                            ),
-                            itemCount: 5,
-                            itemBuilder: (context, index) {
-                              final statuses = [
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              const statuses = [
                                 'pending',
                                 'approved',
                                 'declined',
                                 'completed',
-                                'cancelled'
+                                'cancelled',
                               ];
-                              final status = statuses[index];
-                              final count = _bookingStats[status] ?? 0;
 
-                              Color color;
-                              IconData icon;
-                              switch (status) {
-                                case 'pending':
-                                  color = Colors.orange;
-                                  icon = Icons.pending_actions;
-                                  break;
-                                case 'approved':
-                                  color = Colors.green;
-                                  icon = Icons.check_circle;
-                                  break;
-                                case 'declined':
-                                  color = Colors.red;
-                                  icon = Icons.cancel;
-                                  break;
-                                case 'completed':
-                                  color = Colors.blue;
-                                  icon = Icons.done_all;
-                                  break;
-                                case 'cancelled':
-                                  color = Colors.blueGrey;
-                                  icon = Icons.info;
-                                  break;
-                                default:
-                                  color = Colors.grey;
-                                  icon = Icons.info;
-                              }
-                              return _buildStatCard(
-                                title: _capitalize(status),
-                                value: count.toString(),
-                                icon: icon,
-                                color: color,
+                              int crossAxisCount =
+                                  (constraints.maxWidth / 200).floor();
+                              crossAxisCount = crossAxisCount.clamp(
+                                  2, min(statuses.length, 6));
+                              return GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  mainAxisExtent: 100,
+                                  childAspectRatio: 3.0,
+                                ),
+                                itemCount: 5,
+                                itemBuilder: (context, index) {
+                                  final status = statuses[index];
+                                  final count = _bookingStats[status] ?? 0;
+
+                                  Color color;
+                                  IconData icon;
+                                  switch (status) {
+                                    case 'pending':
+                                      color = Colors.orange;
+                                      icon = Icons.pending_actions;
+                                      break;
+                                    case 'approved':
+                                      color = Colors.green;
+                                      icon = Icons.check_circle;
+                                      break;
+                                    case 'declined':
+                                      color = Colors.red;
+                                      icon = Icons.cancel;
+                                      break;
+                                    case 'completed':
+                                      color = Colors.blue;
+                                      icon = Icons.done_all;
+                                      break;
+                                    case 'cancelled':
+                                      color = Colors.blueGrey;
+                                      icon = Icons.info;
+                                      break;
+                                    default:
+                                      color = Colors.grey;
+                                      icon = Icons.info;
+                                  }
+                                  return _buildStatCard(
+                                    title: _capitalize(status),
+                                    value: count.toString(),
+                                    icon: icon,
+                                    color: color,
+                                  );
+                                },
                               );
                             },
                           ),
