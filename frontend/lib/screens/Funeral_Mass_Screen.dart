@@ -39,12 +39,14 @@ class _FuneralMassScreenState extends State<FuneralMassScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final parishProvider = Provider.of<ParishProvider>(context, listen: false);
+      final parishProvider =
+          Provider.of<ParishProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
-      
+      final priestProvider =
+          Provider.of<PriestProvider>(context, listen: false);
+
       await parishProvider.loadAllParishes();
-      
+
       final userParishId = authProvider.currentUser?.preferredParishId;
 
       // Default to user's preferred parish if available
@@ -55,7 +57,8 @@ class _FuneralMassScreenState extends State<FuneralMassScreen> {
             .firstOrNull;
         if (userParish != null) {
           parishProvider.selectParish(userParish);
-          await priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
+          await priestProvider.loadPriestsByParish(userParishId,
+              token: authProvider.token);
         }
       }
 
@@ -88,9 +91,12 @@ class _FuneralMassScreenState extends State<FuneralMassScreen> {
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final funeralMassProvider = Provider.of<FuneralMassProvider>(context, listen: false);
-      final parishProvider = Provider.of<ParishProvider>(context, listen: false);
-      final priestProvider = Provider.of<PriestProvider>(context, listen: false);
+      final funeralMassProvider =
+          Provider.of<FuneralMassProvider>(context, listen: false);
+      final parishProvider =
+          Provider.of<ParishProvider>(context, listen: false);
+      final priestProvider =
+          Provider.of<PriestProvider>(context, listen: false);
 
       if (authProvider.currentUser == null) {
         if (mounted) {
@@ -179,13 +185,16 @@ class _FuneralMassScreenState extends State<FuneralMassScreen> {
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(funeralMassProvider.errorMessage ?? "Failed to submit booking.")),
+          SnackBar(
+              content: Text(funeralMassProvider.errorMessage ??
+                  "Failed to submit booking.")),
         );
       }
     }
   }
 
-  Widget _buildSection({required String title, required List<Widget> children}) {
+  Widget _buildSection(
+      {required String title, required List<Widget> children}) {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -226,303 +235,323 @@ class _FuneralMassScreenState extends State<FuneralMassScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                "Fill out the form below to submit your funeral mass booking request. All fields marked with * are required.",
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                "The Parish office will contact you immediately to coordinate the priest's schedule for the mass and interment.",
-                style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Colors.grey),
-              ),
-              const SizedBox(height: 20),
-
-              // Deceased Information Section
-              _buildSection(
-                title: "Deceased Information",
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
-                    controller: _deceasedNameController,
-                    decoration: const InputDecoration(
-                      labelText: "Full Name of the Deceased *",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? "Enter deceased name" : null,
+                  const Text(
+                    "Fill out the form below to submit your funeral mass booking request. All fields marked with * are required.",
+                    style: TextStyle(fontSize: 16),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _dateOfDeathController,
-                    decoration: const InputDecoration(
-                      labelText: "Date of Death (Optional)",
-                      hintText: "YYYY-MM-DD",
-                      border: OutlineInputBorder(),
-                    ),
-                    onTap: () async {
-                      FocusScope.of(context).requestFocus(FocusNode());
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                      );
-                      if (pickedDate != null) {
-                        _dateOfDeathController.text =
-                            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-                      }
-                    },
+                  const SizedBox(height: 5),
+                  const Text(
+                    "The Parish office will contact you immediately to coordinate the priest's schedule for the mass and interment.",
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey),
                   ),
-                ],
-              ),
+                  const SizedBox(height: 20),
 
-              // Wake Information Section
-              _buildSection(
-                title: "Wake Information",
-                children: [
-                  TextFormField(
-                    controller: _wakeStartDateController,
-                    decoration: const InputDecoration(
-                      labelText: "Wake Start Date (Optional)",
-                      hintText: "YYYY-MM-DD",
-                      border: OutlineInputBorder(),
-                    ),
-                    onTap: () async {
-                      FocusScope.of(context).requestFocus(FocusNode());
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (pickedDate != null) {
-                        _wakeStartDateController.text =
-                            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _wakeEndDateController,
-                    decoration: const InputDecoration(
-                      labelText: "Wake End Date (Optional)",
-                      hintText: "YYYY-MM-DD",
-                      border: OutlineInputBorder(),
-                    ),
-                    onTap: () async {
-                      FocusScope.of(context).requestFocus(FocusNode());
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (pickedDate != null) {
-                        _wakeEndDateController.text =
-                            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _wakeLocationController,
-                    decoration: const InputDecoration(
-                      labelText: "Wake Location/Chapel (Optional)",
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 2,
-                  ),
-                ],
-              ),
-
-              // Contact Person Section
-              _buildSection(
-                title: "Contact Person",
-                children: [
-                  TextFormField(
-                    controller: _contactPersonController,
-                    decoration: const InputDecoration(
-                      labelText: "Family Representative Name *",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? "Required" : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: "Contact Email *",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Required";
-                      }
-                      if (!value.contains('@')) {
-                        return "Enter a valid email";
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: "Contact Number *",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? "Required" : null,
-                  ),
-                ],
-              ),
-
-              // Schedule & Requirements Section
-              _buildSection(
-                title: "Schedule & Requirements",
-                children: [
-                  Consumer<ParishProvider>(
-                    builder: (context, parishProvider, _) {
-                      return DropdownButtonFormField<int>(
-                        value: parishProvider.selectedParish?.id,
+                  // Deceased Information Section
+                  _buildSection(
+                    title: "Deceased Information",
+                    children: [
+                      TextFormField(
+                        controller: _deceasedNameController,
                         decoration: const InputDecoration(
-                          labelText: "Preferred Parish *",
+                          labelText: "Full Name of the Deceased *",
                           border: OutlineInputBorder(),
                         ),
-                        items: parishProvider.parishes
-                            .map((parish) => DropdownMenuItem(
-                                  value: parish.id,
-                                  child: Text(parish.name),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                          final parish = parishProvider.parishes
-                              .firstWhere((p) => p.id == value);
-                          // Clear any previously selected priest
-                          setState(() {
-                            _selectedPriestId = null;
-                          });
-                          parishProvider.selectParish(parish);
-                          Provider.of<PriestProvider>(
-                              context,
-                              listen: false,
-                            ).loadPriestsByParish(parish.id!, token: authProvider.token);
+                        validator: (value) => value == null || value.isEmpty
+                            ? "Enter deceased name"
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _dateOfDeathController,
+                        decoration: const InputDecoration(
+                          labelText: "Date of Death (Optional)",
+                          hintText: "YYYY-MM-DD",
+                          border: OutlineInputBorder(),
+                        ),
+                        onTap: () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime(1900),
+                            lastDate: DateTime.now(),
+                          );
+                          if (pickedDate != null) {
+                            _dateOfDeathController.text =
+                                "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                          }
                         },
+                      ),
+                    ],
+                  ),
+
+                  // Wake Information Section
+                  _buildSection(
+                    title: "Wake Information",
+                    children: [
+                      TextFormField(
+                        controller: _wakeStartDateController,
+                        decoration: const InputDecoration(
+                          labelText: "Wake Start Date (Optional)",
+                          hintText: "YYYY-MM-DD",
+                          border: OutlineInputBorder(),
+                        ),
+                        onTap: () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate:
+                                DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (pickedDate != null) {
+                            _wakeStartDateController.text =
+                                "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _wakeEndDateController,
+                        decoration: const InputDecoration(
+                          labelText: "Wake End Date (Optional)",
+                          hintText: "YYYY-MM-DD",
+                          border: OutlineInputBorder(),
+                        ),
+                        onTap: () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate:
+                                DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (pickedDate != null) {
+                            _wakeEndDateController.text =
+                                "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _wakeLocationController,
+                        decoration: const InputDecoration(
+                          labelText: "Wake Location/Chapel (Optional)",
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
+
+                  // Contact Person Section
+                  _buildSection(
+                    title: "Contact Person",
+                    children: [
+                      TextFormField(
+                        controller: _contactPersonController,
+                        decoration: const InputDecoration(
+                          labelText: "Family Representative Name *",
+                          border: OutlineInputBorder(),
+                        ),
                         validator: (value) =>
-                            value == null ? "Please select a parish" : null,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _preferredDateController,
-                    decoration: const InputDecoration(
-                      labelText: "Preferred Date *",
-                      hintText: "YYYY-MM-DD",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? "Required" : null,
-                    onTap: () async {
-                      FocusScope.of(context).requestFocus(FocusNode());
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (pickedDate != null) {
-                        _preferredDateController.text =
-                            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _preferredTimeController,
-                    decoration: const InputDecoration(
-                      labelText: "Preferred Time Slot *",
-                      hintText: "HH:MM",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? "Required" : null,
-                    onTap: () async {
-                      FocusScope.of(context).requestFocus(FocusNode());
-                      TimeOfDay? pickedTime = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.now(),
-                      );
-                      if (pickedTime != null) {
-                        _preferredTimeController.text =
-                            "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Consumer<PriestProvider>(
-                  builder: (context, priestProvider, _) {
-                      final validPriestId = _selectedPriestId != null && 
-                          priestProvider.priests.any((p) => p.id == _selectedPriestId) 
-                          ? _selectedPriestId : null;
-                      return DropdownButtonFormField<int>(
-                        value: validPriestId,
+                            value == null || value.isEmpty ? "Required" : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          labelText: "Preferred Priest (Optional) - Subject to availability",
+                          labelText: "Contact Email *",
                           border: OutlineInputBorder(),
                         ),
-                        items: [
-                          const DropdownMenuItem<int>(
-                            value: null,
-                            child: Text("No preference"),
-                          ),
-                          ...priestProvider.priests.map((priest) => DropdownMenuItem<int>(
-                            value: priest.id,
-                            child: Text(priest.fullName),
-                          )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedPriestId = value;
-                          });
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return "Required";
+                          }
+                          if (!value.contains('@')) {
+                            return "Enter a valid email";
+                          }
+                          return null;
                         },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: "Contact Number *",
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) =>
+                            value == null || value.isEmpty ? "Required" : null,
+                      ),
+                    ],
+                  ),
+
+                  // Schedule & Requirements Section
+                  _buildSection(
+                    title: "Schedule & Requirements",
+                    children: [
+                      Consumer<ParishProvider>(
+                        builder: (context, parishProvider, _) {
+                          return DropdownButtonFormField<int>(
+                            value: parishProvider.selectedParish?.id,
+                            decoration: const InputDecoration(
+                              labelText: "Preferred Parish *",
+                              border: OutlineInputBorder(),
+                            ),
+                            items: parishProvider.parishes
+                                .map((parish) => DropdownMenuItem(
+                                      value: parish.id,
+                                      child: Text(parish.name),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              final authProvider = Provider.of<AuthProvider>(
+                                  context,
+                                  listen: false);
+                              final parish = parishProvider.parishes
+                                  .firstWhere((p) => p.id == value);
+                              // Clear any previously selected priest
+                              setState(() {
+                                _selectedPriestId = null;
+                              });
+                              parishProvider.selectParish(parish);
+                              Provider.of<PriestProvider>(
+                                context,
+                                listen: false,
+                              ).loadPriestsByParish(parish.id!,
+                                  token: authProvider.token);
+                            },
+                            validator: (value) =>
+                                value == null ? "Please select a parish" : null,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _preferredDateController,
+                        decoration: const InputDecoration(
+                          labelText: "Preferred Date *",
+                          hintText: "YYYY-MM-DD",
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) =>
+                            value == null || value.isEmpty ? "Required" : null,
+                        onTap: () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate:
+                                DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (pickedDate != null) {
+                            _preferredDateController.text =
+                                "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _preferredTimeController,
+                        decoration: const InputDecoration(
+                          labelText: "Preferred Time Slot *",
+                          hintText: "HH:MM",
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) =>
+                            value == null || value.isEmpty ? "Required" : null,
+                        onTap: () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          TimeOfDay? pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
+                          );
+                          if (pickedTime != null) {
+                            _preferredTimeController.text =
+                                "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Consumer<PriestProvider>(
+                        builder: (context, priestProvider, _) {
+                          final validPriestId = _selectedPriestId != null &&
+                                  priestProvider.priests
+                                      .any((p) => p.id == _selectedPriestId)
+                              ? _selectedPriestId
+                              : null;
+                          return DropdownButtonFormField<int>(
+                            value: validPriestId,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  "Preferred Priest (Optional) - Subject to availability",
+                              border: OutlineInputBorder(),
+                            ),
+                            items: [
+                              const DropdownMenuItem<int>(
+                                value: null,
+                                child: Text("No preference"),
+                              ),
+                              ...priestProvider.priests
+                                  .map((priest) => DropdownMenuItem<int>(
+                                        value: priest.id,
+                                        child: Text(priest.fullName),
+                                      )),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedPriestId = value;
+                              });
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _additionalNotesController,
+                        decoration: const InputDecoration(
+                          labelText: "Additional Notes (Optional)",
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Submit Button with loading state
+                  Consumer<FuneralMassProvider>(
+                    builder: (context, funeralMassProvider, _) {
+                      return CustomButton(
+                        text: "Submit Request",
+                        onPressed:
+                            funeralMassProvider.isLoading ? null : _submitForm,
+                        isLoading: funeralMassProvider.isLoading,
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _additionalNotesController,
-                    decoration: const InputDecoration(
-                      labelText: "Additional Notes (Optional)",
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
-
-              const SizedBox(height: 24),
-
-              // Submit Button with loading state
-              Consumer<FuneralMassProvider>(
-                builder: (context, funeralMassProvider, _) {
-                  return CustomButton(
-                    text: "Submit Request",
-                    onPressed: funeralMassProvider.isLoading ? null : _submitForm,
-                    isLoading: funeralMassProvider.isLoading,
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
       ),
