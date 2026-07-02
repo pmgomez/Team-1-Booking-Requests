@@ -810,6 +810,16 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
   Widget _buildStatusSection(bool isAdmin, int bookingId) {
     if (!isAdmin || _showStatusButtons) return const SizedBox.shrink();
 
+    // 1. Fetch user role
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserRole = authProvider.currentUser?.role;
+
+    // 2. Restrict approval permissions (block parish_staff)
+    final canApprove = currentUserRole == 'priest' ||
+        currentUserRole == 'parish_admin' ||
+        currentUserRole == 'diocese_admin' ||
+        currentUserRole == 'diocese_staff';
+
     final displayStatus = _displayStatus;
     final canChangeStatus = _canChangeStatus;
     final actionButtonText = _actionButtonText;
@@ -819,9 +829,9 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        Text(
+        const Text(
           'Status',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Colors.blue,
@@ -832,9 +842,9 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 120,
-                child: const Text(
+                child: Text(
                   'Status',
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),
@@ -849,40 +859,52 @@ class _BaptismDetailScreenState extends State<BaptismDetailScreen> {
           ),
         ),
         if (status == 'pending') ...[
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text('Approve'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  onPressed: () => _updateStatus('approved'),
+          // 3. Enforce Role Hierarchy UI logic
+          if (canApprove)
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check_circle),
+                    label: const Text('Approve'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () => _updateStatus('approved'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.cancel),
-                  label: const Text('Decline'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: () => _updateStatus('declined'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.cancel),
+                    label: const Text('Decline'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () => _updateStatus('declined'),
+                  ),
                 ),
+              ],
+            )
+          else
+          // Fallback UI for parish_staff
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                "Pending Priest Approval",
+                style: TextStyle(color: Colors.orange, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
               ),
-            ],
-          ),
+            ),
         ] else if (status == 'approved') ...[
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: Text(actionButtonText),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  onPressed: canChangeStatus ? () => _updateStatus('completed') : null,
+          if (canApprove)
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: Text(actionButtonText),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    onPressed: canChangeStatus ? () => _updateStatus('completed') : null,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ],
     );

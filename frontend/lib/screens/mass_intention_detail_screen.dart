@@ -496,6 +496,16 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
   Widget _buildStatusSection(bool isAdmin, int intentionId) {
     if (!isAdmin || _showStatusButtons) return const SizedBox.shrink();
 
+    // 1. Check the current user's role
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserRole = authProvider.currentUser?.role;
+
+    // 2. Define who has final approval authority (exclude parish_staff)
+    final canApprove = currentUserRole == 'priest' ||
+        currentUserRole == 'parish_admin' ||
+        currentUserRole == 'diocese_admin' ||
+        currentUserRole == 'diocese_staff';
+
     final displayStatus = _displayStatus;
     final canChangeStatus = _canChangeStatus;
     final actionButtonText = _actionButtonText;
@@ -535,40 +545,52 @@ class _MassIntentionDetailScreenState extends State<MassIntentionDetailScreen> {
           ),
         ),
         if (status == 'pending') ...[
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text('Approve'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  onPressed: () => _updateStatus('approved'),
+          // 3. Conditionally render buttons based on the role flag
+          if (canApprove)
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check_circle),
+                    label: const Text('Approve'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () => _updateStatus('approved'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.cancel),
-                  label: const Text('Decline'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: () => _updateStatus('declined'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.cancel),
+                    label: const Text('Decline'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () => _updateStatus('declined'),
+                  ),
                 ),
+              ],
+            )
+          else
+          // Fallback UI for parish_staff
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                "Pending Priest Approval",
+                style: TextStyle(color: Colors.orange, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
               ),
-            ],
-          ),
+            ),
         ] else if (status == 'approved') ...[
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: Text(actionButtonText),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  onPressed: canChangeStatus ? () => _updateStatus('completed') : null,
+          if (canApprove)
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: Text(actionButtonText),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    onPressed: canChangeStatus ? () => _updateStatus('completed') : null,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ],
     );
