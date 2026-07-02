@@ -18,6 +18,12 @@ class WeddingBookingScreen extends StatefulWidget {
 class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  // UI/UX IMPROVEMENT: State variables for Conditional Parish Selection.
+  // Determines if the user must manually select a parish (fallback) or
+  // if their home parish is automatically assigned (happy path).
+  bool _showParishDropdown = true;
+  String? _assignedHomeParishName;
+
   // Controllers
   final TextEditingController _groomNameController = TextEditingController();
   final TextEditingController _brideNameController = TextEditingController();
@@ -60,15 +66,38 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
 
       final userParishId = authProvider.currentUser?.preferredParishId;
 
-      // Default to user's preferred parish if available
+      // QA FIX: Dynamic Database Validation
+      // Evaluates if the parish is active (not under renovation) AND
+      // explicitly verifies if 'wedding' is in their servicesOffered array.
       if (userParishId != null) {
-        // This will be set once parishes are loaded
         final userParish = parishProvider.parishes
             .where((p) => p.id == userParishId)
             .firstOrNull;
+
         if (userParish != null) {
-          parishProvider.selectParish(userParish);
-          await priestProvider.loadPriestsByParish(userParishId);
+          // Check if the parish is active and offers weddings
+          bool offersWeddings = userParish.servicesOffered == null ||
+              userParish.servicesOffered!.contains('wedding');
+          bool isUnavailable = !userParish.isActive || !offersWeddings;
+
+          // Happy Path: Home parish is available.
+          // Binds data in the background and sets flag to hide the selection UI.
+          if (!isUnavailable) {
+            // Happy Path: Parish is available. Auto-select and hide dropdown.
+            parishProvider.selectParish(userParish);
+            await priestProvider.loadPriestsByParish(userParishId, token: authProvider.token);
+
+            setState(() {
+              _showParishDropdown = false;
+              _assignedHomeParishName = userParish.name;
+            });
+          } else {
+            // Edge Case: Home parish is inactive/unavailable.
+            // Forces the fallback dropdown menu to render so the user can pick an alternate.
+            setState(() {
+              _showParishDropdown = true;
+            });
+          }
         }
       }
 
@@ -527,7 +556,9 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         ];
       }
 
-      //implemented trim method in this code -
+      // QA FIX: Input Sanitization
+      // Added .trim() to text, date, and time controllers to strip trailing/leading whitespace,
+      // preventing backend formatting errors and database corruption during submission.
       final success = await weddingProvider.createWeddingBooking(
         token: authProvider.token!,
         parishId: parishProvider.selectedParish!.id!,
@@ -535,8 +566,8 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
         brideFullName: _brideNameController.text.trim(),
         contactEmail: authProvider.currentUser!.email,
         contactPhone: _contactController.text.trim(),
-        preferredDate: formatDate(_preferredDateController.text.trim()), // Added .trim() here
-        preferredTimeSlot: formatTime(_preferredTimeController.text.trim()), // Added .trim() here
+        preferredDate: formatDate(_preferredDateController.text.trim()),
+        preferredTimeSlot: formatTime(_preferredTimeController.text.trim()),
         seminarSchedule: _seminarScheduleController.text.trim().isEmpty
             ? null
             : _seminarScheduleController.text.trim(),
@@ -703,6 +734,25 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                   _buildSection(title: "Booking Preferences", children: [
                     Consumer<ParishProvider>(
                       builder: (context, parishProvider, _) {
+                        // UI/UX IMPROVEMENT: Read-Only State
+                        // If the home parish is active, display it as a read-only field.
+                        // This prevents layout overflow/shifting by keeping the component footprint
+                        // mathematically identical to the dropdown.
+                        if (!_showParishDropdown && _assignedHomeParishName != null) {
+                          return TextFormField(
+                            initialValue: _assignedHomeParishName,
+                            decoration: const InputDecoration(
+                              labelText: "Assigned Parish",
+                              border: OutlineInputBorder(),
+                              fillColor: Color(0xFFF5F5F5), // Light grey to indicate read-only
+                              filled: true,
+                            ),
+                            readOnly: true,
+                            enabled: false,
+                          );
+                        }
+
+                        // Fallback: Show the dropdown if no home parish or if it's inactive/unavailable
                         return DropdownButtonFormField<int>(
                           value: parishProvider.selectedParish?.id,
                           decoration: const InputDecoration(
@@ -725,9 +775,9 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                             });
                             parishProvider.selectParish(parish);
                             Provider.of<PriestProvider>(
-                                context,
-                                listen: false,
-                              ).loadPriestsByParish(parish.id!, token: authProvider.token);
+                              context,
+                              listen: false,
+                            ).loadPriestsByParish(parish.id!, token: authProvider.token);
                           },
                           validator: (value) => value == null ? "Please select a parish" : null,
                         );
@@ -803,8 +853,8 @@ class _WeddingBookingScreenState extends State<WeddingBookingScreen> {
                     const SizedBox(height: 12),
                     Consumer<PriestProvider>(
                       builder: (context, priestProvider, _) {
-                        final validPriestId = _selectedPriestId != null && 
-                            priestProvider.priests.any((p) => p.id == _selectedPriestId) 
+                        final validPriestId = _selectedPriestId != null &&
+                            priestProvider.priests.any((p) => p.id == _selectedPriestId)
                             ? _selectedPriestId : null;
                         return DropdownButtonFormField<int>(
                           value: validPriestId,
